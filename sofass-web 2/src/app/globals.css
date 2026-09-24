@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body {
+  background: #faf9f5;
+  color: #141413;
+}
+
+.btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors;
+}
+.btn-primary {
+  @apply bg-accent text-white hover:opacity-90;
+}
+.btn-ghost {
+  @apply bg-transparent border border-border hover:bg-black/5;
+}
+.card {
+  @apply rounded-xl border border-border bg-white p-4 shadow-sm;
+}
+.field label {
+  @apply block text-xs font-medium text-ink-soft mb-1;
+}
+.field input, .field select, .field textarea {
+  @apply w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent/40;
+}
