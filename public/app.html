@@ -286,7 +286,7 @@ import { createBrowserClient } from '/vendor/supabase-ssr.js';
 const TABLE = 'app_docs';
 const PAGE = 1000;
 
-// Tiendas y almacenes del prototipo de claude.ai. Se añaden una sola vez
+// Tiendas, almacenes y proveedores del prototipo de claude.ai. Se añaden una sola vez
 // (marca en meta/import-prototipo-1) y solo si no existe ya uno con ese nombre.
 const PROTOTYPE_DOCS = {
   stores: [
@@ -303,6 +303,25 @@ const PROTOTYPE_DOCS = {
     ['tc1vd6diajelem3il7y8', {name:'Vendido', location:'', createdAt:1790196942758}],
     ['w05q0yis8wyyrpklu6ai', {name:'Family Hogar 1', location:'', createdAt:1789982800285}],
     ['xmhkf2omlypqujuwyd0k', {name:'Merkamueble', location:'', createdAt:1789982801429}],
+  ],
+  suppliers: [
+    ['1fplsnxvbv3hbvzyij6g', {name:'GRUPO SEYS', contact:'', createdAt:1789982806339}],
+    ['2dzxmzcpcf4zgpc70ut3', {name:'Europa Descando', contact:'', createdAt:1789982805706}],
+    ['2gm0imvjfjbulz97bkzq', {name:'Sonpura', contact:'', createdAt:1789982801781}],
+    ['4e79yu139qvqp95o44fk', {name:'Juan Díaz', contact:'', createdAt:1789982805006}],
+    ['719vzkxcb5k95a6lf1k6', {name:'TELAS & FABRIC', contact:'', createdAt:1789982812109}],
+    ['eu3s60vswpr1xcc8nr5n', {name:'200.Europa Confort', contact:'', createdAt:1789982802506}],
+    ['fle77hodu0ak1av6ssih', {name:'MUÑOZ VILLA REAL', contact:'', createdAt:1789982810932}],
+    ['iguotvbcefpgs0yfjcnu', {name:'87.ITEM', contact:'', createdAt:1789982809708}],
+    ['jwcdelgda6vawc61rmyc', {name:'Tapizados Mayo', contact:'', createdAt:1789982803227}],
+    ['lzdqns56k4jy8iqxhgnv', {name:'RUDECA', contact:'', createdAt:1789982808427}],
+    ['oatxf04qdean15h4yoap', {name:'PEMI', contact:'', createdAt:1789982807589}],
+    ['t8pu7w4dw99mrrdv3a49', {name:'Gomarco', contact:'', createdAt:1789982803900}],
+    ['ubg9f1quix3ru8laslgi', {name:'Tapizados Mena', contact:'', createdAt:1789982804500}],
+    ['ue8oh3ylw7kt5sidckw1', {name:'TENDENCIAS MARIN', contact:'', createdAt:1789982811540}],
+    ['w6du3am6ob41ebninsju', {name:'PEREZ E HIJOS', contact:'', createdAt:1789982806940}],
+    ['wh4hpazifwet7z0mcgux', {name:'GLICERIO', contact:'', createdAt:1789982809062}],
+    ['z9wj4v37jaty8hxihf5l', {name:'420.IXIA', contact:'', createdAt:1789982810390}],
   ],
 };
 
