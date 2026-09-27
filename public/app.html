@@ -1871,7 +1871,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
         <label>Productos detectados</label>
         <textarea id="import-text" rows="8" placeholder="Se rellena solo al leer el albarán…"></textarea>
       </div>
-      <p class="hint" style="color:var(--ink-soft);font-size:.78rem;">Si prefieres escribirlo tú, o si la lectura con IA no está disponible en esta vista: pega <b>SKU;Nombre;Cantidad;Precio</b> por línea (una línea por producto — pídeme a mí, en el chat, que te la prepare a partir de una foto del albarán) y pulsa "Importar".</p>
+      <p class="hint" style="color:var(--ink-soft);font-size:.78rem;">Si prefieres escribirlo tú, o si la lectura con IA no está disponible en esta vista: pega <b>SKU;Nombre;Cantidad;Precio</b> (y si quieres <b>;Familia;Medida;Tela</b>) por línea (una línea por producto — pídeme a mí, en el chat, que te la prepare a partir de una foto del albarán) y pulsa "Importar".</p>
     `;
     appendModal('Importar albarán', body, 'save-import', 'Importar');
     checkImageSupport();
@@ -1970,6 +1970,13 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       const sku = parts[0]||''; const name = parts[1]||sku||'Artículo sin nombre';
       const qty = Math.max(0, Number(parts[2])||0);
       const price = Number(parts[3])||0;
+      // Columnas opcionales: Familia;Medida;Tela/color
+      const famName = (parts[4]||'').toLowerCase();
+      const fam = famName ? state.data.families.find(f=>String(f.name||'').trim().toLowerCase()===famName) : null;
+      const extra = {};
+      if(fam) extra.familyId = fam.id;
+      if(parts[5]) extra.measure = parts[5];
+      if(parts[6]) extra.material = parts[6];
       if(!sku && !name) continue;
       if(qty<=0) continue;
       let item = state.data.items.find(i=>String(i.sku||'').toLowerCase()===sku.toLowerCase() && sku);
@@ -1982,7 +1989,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
         itemId = item.id; unitPrice = price||Number(item.price)||0;
         updated++;
       } else {
-        const newId = await addDoc('items', {name, sku, price, supplierId, stock:{[whId]: qty}});
+        const newId = await addDoc('items', {name, sku, price, supplierId, ...extra, stock:{[whId]: qty}});
         if(!newId) continue;
         itemId = newId; unitPrice = price;
         created++;
