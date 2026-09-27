@@ -164,8 +164,9 @@
   .item-card .total .n{font-family:var(--font-display);font-size:1.4rem;font-weight:600;line-height:1;}
   .item-card .total .l{font-size:.66rem;color:var(--ink-soft);letter-spacing:.03em;text-transform:uppercase;}
   .item-card .trace{font-size:.8rem;color:var(--accent-2);font-weight:600;margin:8px 0 0;display:inline-block;}
-  .item-card .actions{display:flex;gap:8px;margin-top:12px;}
-  .item-card .actions .btn{flex:1;}
+  .item-card .actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+  .item-card .actions .btn{flex:1;min-width:30%;}
+  .item-card .actions .btn-ghost.btn-sm{flex:0 0 auto;min-width:0;}
   .locs{list-style:none;margin:10px 0 0;padding:9px 0 0;border-top:1px dashed var(--border);display:flex;flex-direction:column;gap:4px;}
   .locs li{display:flex;justify-content:space-between;font-size:.83rem;color:var(--ink-soft);}
   .locs li b{color:var(--ink);font-weight:600;}
@@ -786,10 +787,11 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
           <div class="total"><div class="n">${total}</div><div class="l">disponibles</div></div>
         </div>
         ${locs.length ? `<ul class="locs">${locs.map(whId=>`<li>${icon('warehouse')} ${esc(warehouseName(whId))} <b>${r.stock[whId]}</b></li>`).join('')}</ul>` : `<div class="locs" style="border-top:1px dashed var(--border);padding-top:9px;color:var(--ink-soft);font-size:.82rem;">Sin stock en ningún almacén.</div>`}
-        ${recent.length ? `<div class="log-mini">${recent.map(m=>`<div><span>${m.type==='reserva'?('Pedido '+m.pedidoId+' · '+esc(m.storeName||'')):(m.type==='exposicion'?('Exposición · '+esc(m.storeName||'')):(m.subtype==='cliente'?('Entrada cliente · '+esc(m.clientName||'')):('Entrada · '+esc(m.warehouseName||''))))}</span><span>${m.qty} uds.</span></div>`).join('')}</div>` : ''}
+        ${recent.length ? `<div class="log-mini">${recent.map(m=>`<div><span>${m.type==='reserva'?('Pedido '+m.pedidoId+' · '+esc(m.storeName||'')):m.type==='vendido'?('Vendido · '+esc(m.storeName||m.warehouseName||'')):(m.type==='exposicion'?('Exposición · '+esc(m.storeName||'')):(m.subtype==='cliente'?('Entrada cliente · '+esc(m.clientName||'')):('Entrada · '+esc(m.warehouseName||''))))}</span><span>${m.qty} uds.</span></div>`).join('')}</div>` : ''}
         <div class="actions">
           ${isAdmin?`<button class="btn btn-teal" data-action="reserve" data-id="${r.id}" type="button" ${total<=0?'disabled':''}>${icon('bookmark')} Reservar</button>`:''}
           <button class="btn btn-navy" data-action="expose" data-id="${r.id}" type="button" ${total<=0?'disabled':''}>${icon('store')} Exposición</button>
+          <button class="btn btn-accent" data-action="mark-sold" data-id="${r.id}" type="button" ${total<=0?'disabled':''}>${icon('sales')} Vendido</button>
           ${isAdmin?`<button class="btn btn-ghost btn-sm" data-action="open-edit" data-entity="items" data-id="${r.id}" type="button">${icon('edit')}</button>`:''}
         </div>
       </div>`;
@@ -926,7 +928,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     if(state.movFilter!=='todos') rows = rows.filter(m=>m.type===state.movFilter);
     rows.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
     return `
-    <div class="section-head"><div><h2>Movimientos</h2><p>${isAdmin?'Entradas, reservas y peticiones de exposición.':'Peticiones de exposición y entradas asignadas a tus ventas.'}</p></div></div>
+    <div class="section-head"><div><h2>Movimientos</h2><p>${isAdmin?'Entradas, reservas, exposición y vendidos.':'Peticiones de exposición y entradas asignadas a tus ventas.'}</p></div></div>
     ${isAdmin ? `
       <div class="action-row">
         <button class="btn btn-accent btn-block" data-action="toggle-mov-actions" type="button">${icon('plus')} Nueva acción</button>
@@ -937,6 +939,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
           <button class="btn btn-teal" data-action="open-movement" data-type="reserva" type="button">${icon('bookmark')} Reservar para pedido</button>
         </div>
         <div class="action-row"><button class="btn btn-navy btn-block" data-action="open-movement" data-type="exposicion" type="button">${icon('store')} Pedir para exposición</button></div>
+        <div class="action-row"><button class="btn btn-accent btn-block" data-action="open-movement" data-type="vendido" type="button">${icon('sales')} Marcar como vendido</button></div>
         <div class="action-row"><button class="btn btn-teal btn-block" data-action="open-import" type="button">${icon('down')} Importar albarán</button></div>
       ` : ''}
     ` : `
@@ -944,7 +947,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     `}
     <div class="eyebrow" style="margin-top:8px;">Historial</div>
     <div class="subnav">
-      ${[['todos','Todos'],['entrada','Entrada'],['reserva','Reserva'],['exposicion','Exposición']].map(([id,label])=>`<button class="${state.movFilter===id?'active':''}" data-action="mov-filter" data-filter="${id}" type="button">${label}</button>`).join('')}
+      ${[['todos','Todos'],['entrada','Entrada'],['reserva','Reserva'],['exposicion','Exposición'],['vendido','Vendido']].map(([id,label])=>`<button class="${state.movFilter===id?'active':''}" data-action="mov-filter" data-filter="${id}" type="button">${label}</button>`).join('')}
     </div>
     ${rows.length===0 ? `<div class="empty">No hay movimientos todavía.</div>` : rows.map(m=>renderMovementItem(m)).join('')}
     `;
@@ -957,14 +960,16 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       sub = `Entrada · ${esc(m.actorName||'Administrador')} · ${esc(m.warehouseName||'')} · REF:${esc(m.sku||'—')}<br><span class="money">${money(m.unitPrice)}/ud · Total ${money(m.total)}</span>`;
     } else if(m.type==='reserva'){
       sub = `Pedido ${esc(m.pedidoId||'')} · Cliente: ${esc(m.clientName||'—')} · ${esc(m.actorName||'')} · ${esc(m.storeName||m.warehouseName||'')}`;
+    } else if(m.type==='vendido'){
+      sub = `Vendido · ${esc(m.actorName||'')} · ${esc(m.storeName||m.warehouseName||'')}${m.clientName?` · ${esc(m.clientName)}`:''} · Salió de ${esc(m.warehouseName||'—')}`;
     } else {
       sub = `Exposición · ${esc(m.actorName||'')} · ${esc(m.storeName||m.warehouseName||'')}`;
     }
-    const canCancel = (m.type==='reserva' || m.type==='exposicion') && m.status!=='cancelado' && !!m.warehouseId;
+    const canCancel = (m.type==='reserva' || m.type==='exposicion' || m.type==='vendido') && m.status!=='cancelado' && !!m.warehouseId;
     return `
     <div class="hist-item">
       <div class="top">
-        <div><div class="name">${icon(m.type==='entrada'?'down':m.type==='reserva'?'bookmark':'store')} ${esc(m.itemName)} <span class="qty">x${m.qty}</span></div></div>
+        <div><div class="name">${icon(m.type==='entrada'?'down':m.type==='reserva'?'bookmark':m.type==='vendido'?'sales':'store')} ${esc(m.itemName)} <span class="qty">x${m.qty}</span></div></div>
         <div class="date">${fmtDate(m.createdAt)}</div>
       </div>
       <div class="sub">${sub}</div>
@@ -1379,7 +1384,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     const m = state.modal;
     const items = state.data.items;
     const item = m.itemId ? byId(items, m.itemId) : null;
-    const titleMap = {entrada:'Registrar entrada', reserva:'Reservar para pedido', exposicion:'Pedir para exposición'};
+    const titleMap = {entrada:'Registrar entrada', reserva:'Reservar para pedido', exposicion:'Pedir para exposición', vendido:'Marcar como vendido'};
     const vend = vendidoWarehouse();
     const salida = m.type!=='entrada';
     const whOptions = state.data.warehouses.filter(w=>!vend || w.id!==vend.id).map(w=>{
@@ -1434,7 +1439,8 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       <div class="field"><label>Almacén de origen</label><select data-field="warehouseId"><option value="">— seleccionar —</option>${whOptions}</select></div>
       <div class="field"><label>Cantidad</label><input type="number" min="1" step="1" data-field="qty" value="1"></div>
       ${m.type==='reserva' ? `<div class="field"><label>Cliente</label><input type="text" data-field="clientName" placeholder="Nombre del cliente"></div>` : ''}
-      ${(m.type==='reserva'||m.type==='exposicion') ? `<div class="field"><label>Tienda</label><select data-field="storeId"><option value="">— seleccionar —</option>${state.data.stores.map(s=>`<option value="${s.id}" ${state.sellerId && byId(state.data.sellers,state.sellerId) && byId(state.data.sellers,state.sellerId).storeId===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select></div>` : ''}
+      ${m.type==='vendido' ? `<div class="field"><label>Cliente o nota (opcional)</label><input type="text" data-field="clientName" placeholder="Ej. nombre del cliente"></div>` : ''}
+      ${(m.type==='reserva'||m.type==='exposicion'||m.type==='vendido') ? `<div class="field"><label>Tienda</label><select data-field="storeId"><option value="">— seleccionar —</option>${state.data.stores.map(s=>`<option value="${s.id}" ${state.sellerId && byId(state.data.sellers,state.sellerId) && byId(state.data.sellers,state.sellerId).storeId===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select></div>` : ''}
     `;
     appendModal(titleMap[m.type], body, 'save-movement');
   }
@@ -1492,6 +1498,15 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       const movId = await addDoc('movements', {type:'reserva', itemId:item.id, itemName:item.name, sku:item.sku||'', qty, warehouseId, warehouseName:warehouseName(warehouseId), clientName, pedidoId:nextPedido(), sellerId:seller?seller.id:null, storeId:storeId||'', storeName:storeName(storeId), actorName, status:'activo'});
       if(!movId) return;
       showToast('Reserva enviada.');
+    } else if(m.type==='vendido'){
+      const clientName = (document.querySelector('[data-field="clientName"]')||{}).value || '';
+      newStock[warehouseId] = Math.max(0,(Number(newStock[warehouseId])||0) - qty);
+      if(vendW) newStock[vendW.id] = (Number(newStock[vendW.id])||0) + qty;
+      const ok = await updateDoc('items', item.id, {stock:newStock});
+      if(!ok) return;
+      const movId = await addDoc('movements', {type:'vendido', itemId:item.id, itemName:item.name, sku:item.sku||'', qty, warehouseId, warehouseName:warehouseName(warehouseId), clientName, sellerId:seller?seller.id:null, storeId:storeId||'', storeName:storeId?storeName(storeId):'', actorName, status:'activo'});
+      if(!movId) return;
+      showToast('Marcado como vendido · ya no está disponible.');
     } else {
       newStock[warehouseId] = Math.max(0,(Number(newStock[warehouseId])||0) - qty);
       const ok = await updateDoc('items', item.id, {stock:newStock});
@@ -1511,10 +1526,12 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     if(item){
       const newStock = {...(item.stock||{})};
       newStock[m.warehouseId] = (Number(newStock[m.warehouseId])||0) + Number(m.qty||0);
+      const vendC = vendidoWarehouse();
+      if(m.type==='vendido' && vendC) newStock[vendC.id] = Math.max(0,(Number(newStock[vendC.id])||0) - Number(m.qty||0));
       await updateDoc('items', item.id, {stock:newStock});
     }
     await updateDoc('movements', id, {status:'cancelado'});
-    showToast(m.type==='exposicion' ? 'Exposición cancelada.' : 'Reserva cancelada.');
+    showToast(m.type==='exposicion' ? 'Exposición cancelada.' : m.type==='vendido' ? 'Venta anulada · vuelve a estar disponible.' : 'Reserva cancelada.');
   }
 
   /* ---- cash modal ---- */
@@ -2072,6 +2089,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
         break;
       case 'reserve': state.modal = {kind:'movement', type:'reserva', itemId: el.dataset.id}; render(); break;
       case 'expose': state.modal = {kind:'movement', type:'exposicion', itemId: el.dataset.id}; render(); break;
+      case 'mark-sold': state.modal = {kind:'movement', type:'vendido', itemId: el.dataset.id}; render(); break;
       case 'open-movement': state.modal = {kind:'movement', type: el.dataset.type, itemId:null}; render(); break;
       case 'open-import': state.modal = {kind:'import'}; render(); break;
       case 'save-import': saveImport(); break;
