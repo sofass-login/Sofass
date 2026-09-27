@@ -61,3 +61,9 @@ este paso manual nunca más.
 Cuando quieras que cambie algo, dímelo aquí (en esta conversación) y yo actualizo el
 código. Si el proyecto está conectado a GitHub, los cambios se publican solos en
 Vercel en 1-2 minutos tras subirlos.
+
+## App de tienda (portada)
+
+La portada (`/`) sirve `public/app.html`, la app de tienda (almacén, ventas, caja,
+valoración y configuración). Guarda sus datos en la tabla `app_docs` de Supabase:
+ejecuta una vez `supabase/app_docs.sql` en Supabase → SQL Editor.
