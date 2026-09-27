@@ -636,7 +636,8 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
   const familyName = id => (byId(state.data.families,id)||{}).name || '—';
   const groupName = id => (byId(state.data.familyGroups,id)||{}).name || '—';
   const getSettings = () => state.data.settings.find(s=>s.id==='app') || {};
-  const totalStock = item => Object.values(item.stock||{}).reduce((a,b)=>a+(Number(b)||0),0);
+  // Disponible = todos los almacenes menos "Vendido" (lo vendido pendiente de entregar ya no está a la venta).
+  const totalStock = item => { const v = vendidoWarehouse(); return Object.entries(item.stock||{}).reduce((a,[wh,n])=>a+(v&&wh===v.id?0:(Number(n)||0)),0); };
   const stockIn = (item,whId) => Number((item.stock||{})[whId]||0);
   const fmtDate = ts => { if(!ts) return ''; const d=new Date(ts); return d.toLocaleDateString('sv-SE'); };
   const fmtDateTime = ts => { if(!ts) return ''; const d=new Date(ts); return d.toLocaleDateString('sv-SE')+' '+d.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}); };
@@ -1391,7 +1392,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
         </div>
       </div>` : '';
     if(m.type==='entrada'){
-      const destino = m.destino || 'stock';
+      const destino = 'stock';
       const pending = [];
       state.data.sales.forEach(s=>{
         (s.items||[]).forEach((l,idx)=>{
@@ -1400,10 +1401,6 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       });
       const pendingOptions = pending.map(p=>`<option value="${p.saleId}|${p.lineIdx}">${esc(p.clientName||'Cliente')} · ${esc(p.itemName)} x${p.qty}${p.supplierName?(' · Fabricante: '+esc(p.supplierName)):''}${p.note?(' ('+esc(p.note)+')'):''} · ${esc(p.storeName||'')}${p.pedidoNumber?(' · Pedido '+esc(p.pedidoNumber)):''}</option>`).join('');
       const body = `
-        <div class="subnav" style="margin-bottom:4px;">
-          <button type="button" class="${destino==='stock'?'active':''}" data-action="entrada-destino" data-destino="stock">Para stock</button>
-          <button type="button" class="${destino==='cliente'?'active':''}" data-action="entrada-destino" data-destino="cliente">Ya vendido a un cliente</button>
-        </div>
         ${destino==='stock' ? `
           ${!item ? `<div class="field"><label>Artículo</label><select data-field="itemId">
               <option value="">— seleccionar —</option>
@@ -1554,22 +1551,12 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     const note = noteEl ? noteEl.value.trim() : '';
     snapshotSaleModalFields();
     state.saleDraftItems = state.saleDraftItems || [];
-    if(itemId==='__custom__'){
-      const supplierEl = document.getElementById('sale-item-supplier');
-      const nameEl = document.getElementById('sale-item-custom-name');
-      const supplierId = supplierEl ? supplierEl.value : '';
-      const productName = nameEl ? nameEl.value.trim() : '';
-      if(!supplierId){ showToast('Elige el fabricante.'); return; }
-      if(!productName){ showToast('Escribe el nombre del producto.'); return; }
-      const supplier = byId(state.data.suppliers, supplierId);
-      state.saleDraftItems.push({itemId:null, itemName:productName, sku:'', qty, orderType:'pedido', note, supplierId, supplierName:supplier?supplier.name:''});
-      render();
-      return;
-    }
-    const orderType = typeEl && typeEl.value==='pedido' ? 'pedido' : 'stock';
+    const orderType = 'stock';
     if(!itemId){ showToast('Elige un artículo.'); return; }
     const item = byId(state.data.items, itemId);
     if(!item) return;
+    const yaEnVenta = state.saleDraftItems.filter(l=>l.itemId===itemId).reduce((a,l)=>a+l.qty,0);
+    if(yaEnVenta + qty > totalStock(item)){ showToast('No hay stock suficiente: quedan '+Math.max(0,totalStock(item)-yaEnVenta)+' disponibles.'); return; }
     state.saleDraftItems.push({itemId, itemName:item.name, sku:item.sku||'', qty, orderType, note});
     render();
   }
@@ -1581,10 +1568,10 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
   function renderSaleModal(){
     const m = state.modal;
     const drafts = state.saleDraftItems || [];
-    const itemOptions = state.data.items.map(i=>`<option value="${i.id}">${esc(i.name)}${i.sku?` (${esc(i.sku)})`:''}</option>`).join('');
+    const itemOptions = state.data.items.map(i=>{ const n = totalStock(i); return `<option value="${i.id}" ${n<=0?'disabled':''}>${esc(i.name)}${i.sku?` (${esc(i.sku)})`:''} · ${n} disp.</option>`; }).join('');
     const supplierOptions = state.data.suppliers.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
     const linesHtml = drafts.length ? `<ul class="locs" style="border-top:1px dashed var(--border);margin-top:8px;padding-top:8px;">${drafts.map((l,idx)=>{
-      const tag = l.orderType==='pedido' ? '📋 de pedido' : '✓ de stock';
+      const tag = '✓ de stock';
       const fab = (!l.itemId && l.supplierName) ? ` <span style="color:var(--ink-soft);">· Fabricante: ${esc(l.supplierName)}</span>` : '';
       return `<li>${tag} · ${esc(l.itemName)} <b>x${l.qty}</b>${fab}${l.note?` <span style="color:var(--ink-soft);">(${esc(l.note)})</span>`:''} <button type="button" class="btn btn-ghost btn-sm" style="margin-left:auto;" data-action="remove-sale-item" data-idx="${idx}">${icon('trash')}</button></li>`;
     }).join('')}</ul>` : '';
@@ -1594,24 +1581,15 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       <div class="field">
         <label>Líneas de producto</label>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <select id="sale-item-select" style="flex:2;min-width:140px;" onchange="(function(sel){var c=document.getElementById('sale-item-custom-block');var t=document.getElementById('sale-item-type');if(sel.value==='__custom__'){c.style.display='flex';if(t){t.value='pedido';t.disabled=true;}}else{c.style.display='none';if(t){t.disabled=false;}}})(this)">
+          <select id="sale-item-select" style="flex:2;min-width:140px;">
             <option value="">— artículo —</option>${itemOptions}
-            <option value="__custom__">+ Producto nuevo (no está en el catálogo)</option>
           </select>
           <input type="number" id="sale-item-qty" min="1" step="1" value="1" style="flex:1;min-width:60px;">
-          <select id="sale-item-type" style="flex:1;min-width:110px;">
-            <option value="stock">De stock</option>
-            <option value="pedido">De pedido</option>
-          </select>
           <button type="button" class="btn btn-accent btn-sm" data-action="add-sale-item">${icon('plus')}</button>
         </div>
-        <div id="sale-item-custom-block" style="display:none;gap:8px;flex-wrap:wrap;margin-top:6px;">
-          <select id="sale-item-supplier" style="flex:1;min-width:140px;"><option value="">— fabricante —</option>${supplierOptions}</select>
-          <input type="text" id="sale-item-custom-name" placeholder="Nombre del producto a pedir" style="flex:2;min-width:160px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--ink);font-size:.85rem;">
-        </div>
-        <input type="text" id="sale-item-note" placeholder="Nota para el pedido (color, tela, medida…) — opcional" style="margin-top:6px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--ink);font-size:.85rem;width:100%;">
+        <input type="text" id="sale-item-note" placeholder="Nota (color, tela, medida…) — opcional" style="margin-top:6px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--ink);font-size:.85rem;width:100%;">
         ${linesHtml}
-        <p class="stock-hint">"De stock" descuenta del almacén si hay unidades. "De pedido" nunca descuenta stock — queda pendiente para pedirlo al fabricante, aunque haya unidades. Si el producto no está en tu catálogo, elige "+ Producto nuevo", indica el fabricante y escribe el nombre — se añadirá como pedido. Tras guardar la venta podrás descargar la hoja de pedido desde su ficha, para asociarla luego cuando llegue.</p>
+        <p class="stock-hint">Solo se venden artículos con stock disponible. Al guardar la venta se descuentan del almacén.</p>
       </div>
       <div class="field"><label>Notas adicionales</label><textarea data-field="itemsText" placeholder="2× Almohada Fibra&#10;1× 3 plazas Roma">${esc(m.itemsTextDraft||'')}</textarea></div>
       <div class="field"><label>Total (€)</label><input type="number" min="0" step="any" data-field="total" value="${esc(m.totalDraft||'')}"></div>
@@ -1672,7 +1650,13 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     const seller = state.sellerId ? byId(state.data.sellers, state.sellerId) : null;
     const clientName = get('clientName');
     const pedidoNumber = get('pedidoNumber');
-    const drafts = state.saleDraftItems || [];
+    const drafts = (state.saleDraftItems || []).filter(l=>l.itemId);
+    const pedidoPorArticulo = {};
+    drafts.forEach(l=>{ pedidoPorArticulo[l.itemId] = (pedidoPorArticulo[l.itemId]||0) + l.qty; });
+    for(const id of Object.keys(pedidoPorArticulo)){
+      const it = byId(state.data.items, id);
+      if(!it || pedidoPorArticulo[id] > totalStock(it)){ showToast('No hay stock suficiente de '+(it?it.name:'un artículo')+'.'); return; }
+    }
     const finalItems = [];
     let lineSeq = 1;
     for(const l of drafts){
@@ -1683,7 +1667,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       }
       const item = byId(state.data.items, l.itemId);
       if(!item) continue;
-      const orderType = l.orderType==='pedido' ? 'pedido' : 'stock';
+      const orderType = 'stock';
       let delivered = false;
       let sourceWarehouses = [];
       let handedOver = true;
