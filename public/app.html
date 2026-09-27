@@ -960,7 +960,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     } else {
       sub = `Exposición · ${esc(m.actorName||'')} · ${esc(m.storeName||m.warehouseName||'')}`;
     }
-    const canCancel = (m.type==='reserva' || m.type==='exposicion') && m.status!=='cancelado';
+    const canCancel = (m.type==='reserva' || m.type==='exposicion') && m.status!=='cancelado' && !!m.warehouseId;
     return `
     <div class="hist-item">
       <div class="top">
@@ -1380,7 +1380,13 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     const items = state.data.items;
     const item = m.itemId ? byId(items, m.itemId) : null;
     const titleMap = {entrada:'Registrar entrada', reserva:'Reservar para pedido', exposicion:'Pedir para exposición'};
-    const whOptions = state.data.warehouses.map(w=>`<option value="${w.id}">${esc(w.name)}</option>`).join('');
+    const vend = vendidoWarehouse();
+    const salida = m.type!=='entrada';
+    const whOptions = state.data.warehouses.filter(w=>!vend || w.id!==vend.id).map(w=>{
+      const n = item ? stockIn(item, w.id) : null;
+      const off = salida && item && n<=0;
+      return `<option value="${w.id}" ${off?'disabled':''}>${esc(w.name)}${salida && item ? ` · ${n} disp.` : ''}</option>`;
+    }).join('');
     const itemInfo = item ? `
       <div class="card" style="margin:0;">
         <div style="display:flex;justify-content:space-between;gap:8px;"><b>${esc(familyName(item.familyId))} · ${esc(item.name)}</b><span class="tag">${esc(item.sku||'—')}</span></div>
@@ -1421,9 +1427,9 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       return;
     }
     const body = `
-      ${!item ? `<div class="field"><label>Artículo</label><select data-field="itemId">
+      ${!item ? `<div class="field"><label>Artículo</label><select data-field="itemId" data-action-change="mov-item">
           <option value="">— seleccionar —</option>
-          ${items.map(i=>`<option value="${i.id}">${esc(i.name)} (${esc(i.sku||'')})</option>`).join('')}
+          ${items.map(i=>{ const n = totalStock(i); return `<option value="${i.id}" ${n<=0?'disabled':''}>${esc(i.name)} (${esc(i.sku||'')}) · ${n} disp.</option>`; }).join('')}
         </select></div>` : itemInfo}
       <div class="field"><label>Almacén de origen</label><select data-field="warehouseId"><option value="">— seleccionar —</option>${whOptions}</select></div>
       <div class="field"><label>Cantidad</label><input type="number" min="1" step="1" data-field="qty" value="1"></div>
@@ -1461,8 +1467,10 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     const warehouseId = (document.querySelector('[data-field="warehouseId"]')||{}).value;
     if(!warehouseId){ showToast('Elige un almacén.'); return; }
     const qty = Math.max(1, Number((document.querySelector('[data-field="qty"]')||{}).value)||1);
+    const vendW = vendidoWarehouse();
+    if(vendW && warehouseId===vendW.id){ showToast('Las unidades del almacén "Vendido" ya no están disponibles.'); return; }
     const available = stockIn(item, warehouseId);
-    if(m.type!=='entrada' && qty>available){ showToast('No hay suficiente stock en ese almacén.'); return; }
+    if(m.type!=='entrada' && qty>available){ showToast('No hay suficiente stock en ese almacén: quedan '+available+'.'); return; }
     const seller = state.sellerId ? byId(state.data.sellers, state.sellerId) : null;
     const actorName = seller ? seller.name : 'Administrador';
     const storeField = document.querySelector('[data-field="storeId"]');
@@ -1497,6 +1505,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
   async function cancelMovement(id){
     const m = byId(state.data.movements, id);
     if(!m) return;
+    if(!m.warehouseId){ showToast('Esta reserva viene de una venta y no se puede cancelar aquí.'); return; }
     if(!window.confirm('¿Cancelar esto? El stock volverá al almacén.')) return;
     const item = byId(state.data.items, m.itemId);
     if(item){
@@ -2007,6 +2016,8 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     });
     const restoreInput = document.getElementById('restore-file');
     if(restoreInput){ restoreInput.onchange = (e)=>{ const f=e.target.files[0]; if(f) restoreBackup(f); e.target.value=''; }; }
+    const movItemSel = document.querySelector('[data-action-change="mov-item"]');
+    if(movItemSel){ movItemSel.onchange = (e)=>{ if(state.modal && e.target.value){ state.modal.itemId = e.target.value; render(); } }; }
     const importInput = document.getElementById('import-file');
     if(importInput){ importInput.onchange = (e)=>{ const f=e.target.files[0]; if(f) extractAlbaranFile(f); }; }
     document.querySelectorAll('[data-toggle-sub]').forEach(el=>{
