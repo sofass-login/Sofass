@@ -1,11 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function SetPasswordPage() {
-  const router = useRouter();
   const supabase = createClient();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -21,8 +19,7 @@ export default function SetPasswordPage() {
     const { error } = await supabase.auth.updateUser({ password });
     setSaving(false);
     if (error) return setError(error.message);
-    router.push("/");
-    router.refresh();
+    window.location.href = "/";
   }
 
   return (
