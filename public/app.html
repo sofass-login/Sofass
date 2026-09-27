@@ -245,6 +245,7 @@
   #qr-reader video{border-radius:10px;}
   .scan-hint{font-size:.8rem;color:var(--ink-soft);text-align:center;}
   .toast.show{opacity:1;bottom:28px;}
+  .price-input{width:84px;padding:6px 8px;border:1px solid var(--border);border-radius:7px;background:var(--bg);color:var(--ink);font-size:.85rem;font-family:var(--font-mono);}
 </style>
 </head>
 <body>
@@ -1000,7 +1001,8 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       groups[key].qty+=qty; groups[key].value+=value;
     }
     if(state.valorView==='warehouse'){
-      items.forEach(i=>{ Object.keys(i.stock||{}).forEach(whId=>{ const q=Number(i.stock[whId])||0; if(q>0) addTo(whId, warehouseName(whId), q, q*(Number(i.price)||0)); }); });
+      const vendV = vendidoWarehouse();
+      items.forEach(i=>{ Object.keys(i.stock||{}).forEach(whId=>{ if(vendV && whId===vendV.id) return; const q=Number(i.stock[whId])||0; if(q>0) addTo(whId, warehouseName(whId), q, q*(Number(i.price)||0)); }); });
     } else if(state.valorView==='supplier'){
       items.forEach(i=>{ const q=totalStock(i); if(q>0) addTo(i.supplierId||'—', supplierName(i.supplierId), q, q*(Number(i.price)||0)); });
     } else {
@@ -1017,6 +1019,18 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       </div>
       ${noPriceUnits>0 ? `<div style="margin-top:10px;color:var(--danger);font-size:.82rem;">${noPriceUnits} unidades sin coste registrado (no incluidas en el valor total).</div>` : ''}
     </div>
+    ${(()=>{
+      const sinCoste = items.filter(i=>!(Number(i.price)>0) && totalStock(i)>0);
+      if(!sinCoste.length) return '';
+      return `
+      <div class="wh-block">
+        <div class="wh-block-head"><h3>Pendientes de coste</h3><span class="tag low">${sinCoste.length}</span></div>
+        <p style="margin:0 0 10px;color:var(--ink-soft);font-size:.84rem;">Escribe el coste por unidad y pulsa fuera del recuadro (o Intro) para guardarlo.</p>
+        <div class="table-wrap"><table><thead><tr><th>Artículo</th><th>Uds.</th><th>€/ud</th></tr></thead><tbody>
+          ${sinCoste.map(i=>`<tr><td>${esc(familyName(i.familyId))} · ${esc(i.name)}<div style="font-family:var(--font-mono);font-size:.7rem;color:var(--ink-soft);">${esc(i.sku||'')}</div></td><td>${totalStock(i)}</td><td><input class="price-input" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" data-price-item="${i.id}"></td></tr>`).join('')}
+        </tbody></table></div>
+      </div>`;
+    })()}
     <div class="subnav">
       <button class="${state.valorView==='warehouse'?'active':''}" data-action="valor-view" data-view="warehouse" type="button">Por almacén</button>
       <button class="${state.valorView==='supplier'?'active':''}" data-action="valor-view" data-view="supplier" type="button">Por proveedor</button>
@@ -1032,8 +1046,8 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       return `
       <div class="wh-block">
         <div class="wh-block-head"><h3>${esc(g.label)}</h3><span class="tag">${g.qty} ud.</span><span style="margin-left:auto;font-weight:700;color:var(--accent-2);">${money(g.value)}</span></div>
-        <div class="table-wrap"><table><thead><tr><th>Artículo</th><th>SKU</th><th>Uds.</th><th>Valor</th></tr></thead><tbody>
-          ${rows.map(i=>{ const q = state.valorView==='warehouse'?stockIn(i,k):totalStock(i); return `<tr><td>${esc(familyName(i.familyId))} · ${esc(i.name)}</td><td>${esc(i.sku||'—')}</td><td>${q}</td><td>${Number(i.price)>0?money(q*i.price):'<span class="tag low">sin coste</span>'}</td></tr>`; }).join('')}
+        <div class="table-wrap"><table><thead><tr><th>Artículo</th><th>Uds.</th><th>€/ud</th><th>Valor</th></tr></thead><tbody>
+          ${rows.map(i=>{ const q = state.valorView==='warehouse'?stockIn(i,k):totalStock(i); return `<tr><td>${esc(familyName(i.familyId))} · ${esc(i.name)}<div style="font-family:var(--font-mono);font-size:.7rem;color:var(--ink-soft);">${esc(i.sku||'—')}</div></td><td>${q}</td><td><input class="price-input" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" value="${Number(i.price)>0?String(Number(i.price)).replace('.',','):''}" data-price-item="${i.id}"></td><td>${Number(i.price)>0?money(q*i.price):'<span class="tag low">sin coste</span>'}</td></tr>`; }).join('')}
         </tbody></table></div>
       </div>`;
     }).join('')}
@@ -2031,6 +2045,16 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     });
     const restoreInput = document.getElementById('restore-file');
     if(restoreInput){ restoreInput.onchange = (e)=>{ const f=e.target.files[0]; if(f) restoreBackup(f); e.target.value=''; }; }
+    document.querySelectorAll('[data-price-item]').forEach(inp=>{
+      inp.onkeydown = (e)=>{ if(e.key==='Enter') inp.blur(); };
+      inp.onchange = async ()=>{
+        const raw = String(inp.value).replace(',', '.').trim();
+        const price = raw==='' ? 0 : Number(raw);
+        if(!(price>=0)){ showToast('Precio no válido.'); return; }
+        const ok = await updateDoc('items', inp.dataset.priceItem, {price});
+        if(ok) showToast(price>0 ? 'Coste guardado.' : 'Coste borrado.');
+      };
+    });
     const movItemSel = document.querySelector('[data-action-change="mov-item"]');
     if(movItemSel){ movItemSel.onchange = (e)=>{ if(state.modal && e.target.value){ state.modal.itemId = e.target.value; render(); } }; }
     const importInput = document.getElementById('import-file');
