@@ -164,8 +164,9 @@
   .item-card .total .n{font-family:var(--font-display);font-size:1.4rem;font-weight:600;line-height:1;}
   .item-card .total .l{font-size:.66rem;color:var(--ink-soft);letter-spacing:.03em;text-transform:uppercase;}
   .item-card .trace{font-size:.8rem;color:var(--accent-2);font-weight:600;margin:8px 0 0;display:inline-block;}
-  .item-card .actions{display:flex;gap:8px;margin-top:12px;}
-  .item-card .actions .btn{flex:1;}
+  .item-card .actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+  .item-card .actions .btn{flex:1;min-width:30%;}
+  .item-card .actions .btn-ghost.btn-sm{flex:0 0 auto;min-width:0;}
   .locs{list-style:none;margin:10px 0 0;padding:9px 0 0;border-top:1px dashed var(--border);display:flex;flex-direction:column;gap:4px;}
   .locs li{display:flex;justify-content:space-between;font-size:.83rem;color:var(--ink-soft);}
   .locs li b{color:var(--ink);font-weight:600;}
@@ -636,7 +637,8 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
   const familyName = id => (byId(state.data.families,id)||{}).name || '—';
   const groupName = id => (byId(state.data.familyGroups,id)||{}).name || '—';
   const getSettings = () => state.data.settings.find(s=>s.id==='app') || {};
-  const totalStock = item => Object.values(item.stock||{}).reduce((a,b)=>a+(Number(b)||0),0);
+  // Disponible = todos los almacenes menos "Vendido" (lo vendido pendiente de entregar ya no está a la venta).
+  const totalStock = item => { const v = vendidoWarehouse(); return Object.entries(item.stock||{}).reduce((a,[wh,n])=>a+(v&&wh===v.id?0:(Number(n)||0)),0); };
   const stockIn = (item,whId) => Number((item.stock||{})[whId]||0);
   const fmtDate = ts => { if(!ts) return ''; const d=new Date(ts); return d.toLocaleDateString('sv-SE'); };
   const fmtDateTime = ts => { if(!ts) return ''; const d=new Date(ts); return d.toLocaleDateString('sv-SE')+' '+d.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}); };
@@ -675,11 +677,11 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       <div class="role-grid">
         <button class="role-card" data-action="enter-admin" type="button">
           ${icon('admin')}<h3>Administrador</h3>
-          <p>Almacén, caja, ventas, movimientos y configuración.</p>
+          <p>Almacén, movimientos, valoración y configuración.</p>
         </button>
         <button class="role-card" data-action="enter-seller" type="button">
           ${icon('seller')}<h3>Vendedor</h3>
-          <p>Consulta el stock, registra ventas y gestiona la caja de tu tienda.</p>
+          <p>Consulta el stock disponible, reserva y marca lo vendido.</p>
         </button>
       </div>
     </div>`;
@@ -698,7 +700,6 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
   /* ================= ADMIN ================= */
   const ADMIN_TABS = [
     {id:'almacen', label:'Almacén', icon:'warehouse'},
-    {id:'ventas', label:'Ventas', icon:'sales'},
     {id:'valoracion', label:'Valoración', icon:'dash'},
     {id:'config', label:'Configuración', icon:'config'},
   ];
@@ -785,10 +786,11 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
           <div class="total"><div class="n">${total}</div><div class="l">disponibles</div></div>
         </div>
         ${locs.length ? `<ul class="locs">${locs.map(whId=>`<li>${icon('warehouse')} ${esc(warehouseName(whId))} <b>${r.stock[whId]}</b></li>`).join('')}</ul>` : `<div class="locs" style="border-top:1px dashed var(--border);padding-top:9px;color:var(--ink-soft);font-size:.82rem;">Sin stock en ningún almacén.</div>`}
-        ${recent.length ? `<div class="log-mini">${recent.map(m=>`<div><span>${m.type==='reserva'?('Pedido '+m.pedidoId+' · '+esc(m.storeName||'')):(m.type==='exposicion'?('Exposición · '+esc(m.storeName||'')):(m.subtype==='cliente'?('Entrada cliente · '+esc(m.clientName||'')):('Entrada · '+esc(m.warehouseName||''))))}</span><span>${m.qty} uds.</span></div>`).join('')}</div>` : ''}
+        ${recent.length ? `<div class="log-mini">${recent.map(m=>`<div><span>${m.type==='reserva'?('Pedido '+m.pedidoId+' · '+esc(m.storeName||'')):m.type==='vendido'?('Vendido · '+esc(m.storeName||m.warehouseName||'')):(m.type==='exposicion'?('Exposición · '+esc(m.storeName||'')):(m.subtype==='cliente'?('Entrada cliente · '+esc(m.clientName||'')):('Entrada · '+esc(m.warehouseName||''))))}</span><span>${m.qty} uds.</span></div>`).join('')}</div>` : ''}
         <div class="actions">
           ${isAdmin?`<button class="btn btn-teal" data-action="reserve" data-id="${r.id}" type="button" ${total<=0?'disabled':''}>${icon('bookmark')} Reservar</button>`:''}
           <button class="btn btn-navy" data-action="expose" data-id="${r.id}" type="button" ${total<=0?'disabled':''}>${icon('store')} Exposición</button>
+          <button class="btn btn-accent" data-action="mark-sold" data-id="${r.id}" type="button" ${total<=0?'disabled':''}>${icon('sales')} Vendido</button>
           ${isAdmin?`<button class="btn btn-ghost btn-sm" data-action="open-edit" data-entity="items" data-id="${r.id}" type="button">${icon('edit')}</button>`:''}
         </div>
       </div>`;
@@ -925,7 +927,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     if(state.movFilter!=='todos') rows = rows.filter(m=>m.type===state.movFilter);
     rows.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
     return `
-    <div class="section-head"><div><h2>Movimientos</h2><p>${isAdmin?'Entradas, reservas y peticiones de exposición.':'Peticiones de exposición y entradas asignadas a tus ventas.'}</p></div></div>
+    <div class="section-head"><div><h2>Movimientos</h2><p>${isAdmin?'Entradas, reservas, exposición y vendidos.':'Peticiones de exposición y entradas asignadas a tus ventas.'}</p></div></div>
     ${isAdmin ? `
       <div class="action-row">
         <button class="btn btn-accent btn-block" data-action="toggle-mov-actions" type="button">${icon('plus')} Nueva acción</button>
@@ -936,6 +938,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
           <button class="btn btn-teal" data-action="open-movement" data-type="reserva" type="button">${icon('bookmark')} Reservar para pedido</button>
         </div>
         <div class="action-row"><button class="btn btn-navy btn-block" data-action="open-movement" data-type="exposicion" type="button">${icon('store')} Pedir para exposición</button></div>
+        <div class="action-row"><button class="btn btn-accent btn-block" data-action="open-movement" data-type="vendido" type="button">${icon('sales')} Marcar como vendido</button></div>
         <div class="action-row"><button class="btn btn-teal btn-block" data-action="open-import" type="button">${icon('down')} Importar albarán</button></div>
       ` : ''}
     ` : `
@@ -943,7 +946,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     `}
     <div class="eyebrow" style="margin-top:8px;">Historial</div>
     <div class="subnav">
-      ${[['todos','Todos'],['entrada','Entrada'],['reserva','Reserva'],['exposicion','Exposición']].map(([id,label])=>`<button class="${state.movFilter===id?'active':''}" data-action="mov-filter" data-filter="${id}" type="button">${label}</button>`).join('')}
+      ${[['todos','Todos'],['entrada','Entrada'],['reserva','Reserva'],['exposicion','Exposición'],['vendido','Vendido']].map(([id,label])=>`<button class="${state.movFilter===id?'active':''}" data-action="mov-filter" data-filter="${id}" type="button">${label}</button>`).join('')}
     </div>
     ${rows.length===0 ? `<div class="empty">No hay movimientos todavía.</div>` : rows.map(m=>renderMovementItem(m)).join('')}
     `;
@@ -956,14 +959,16 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       sub = `Entrada · ${esc(m.actorName||'Administrador')} · ${esc(m.warehouseName||'')} · REF:${esc(m.sku||'—')}<br><span class="money">${money(m.unitPrice)}/ud · Total ${money(m.total)}</span>`;
     } else if(m.type==='reserva'){
       sub = `Pedido ${esc(m.pedidoId||'')} · Cliente: ${esc(m.clientName||'—')} · ${esc(m.actorName||'')} · ${esc(m.storeName||m.warehouseName||'')}`;
+    } else if(m.type==='vendido'){
+      sub = `Vendido · ${esc(m.actorName||'')} · ${esc(m.storeName||m.warehouseName||'')}${m.clientName?` · ${esc(m.clientName)}`:''} · Salió de ${esc(m.warehouseName||'—')}`;
     } else {
       sub = `Exposición · ${esc(m.actorName||'')} · ${esc(m.storeName||m.warehouseName||'')}`;
     }
-    const canCancel = (m.type==='reserva' || m.type==='exposicion') && m.status!=='cancelado';
+    const canCancel = (m.type==='reserva' || m.type==='exposicion' || m.type==='vendido') && m.status!=='cancelado' && !!m.warehouseId;
     return `
     <div class="hist-item">
       <div class="top">
-        <div><div class="name">${icon(m.type==='entrada'?'down':m.type==='reserva'?'bookmark':'store')} ${esc(m.itemName)} <span class="qty">x${m.qty}</span></div></div>
+        <div><div class="name">${icon(m.type==='entrada'?'down':m.type==='reserva'?'bookmark':m.type==='vendido'?'sales':'store')} ${esc(m.itemName)} <span class="qty">x${m.qty}</span></div></div>
         <div class="date">${fmtDate(m.createdAt)}</div>
       </div>
       <div class="sub">${sub}</div>
@@ -1269,10 +1274,9 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       return topbar('') + renderSellerPicker();
     }
     const who = `<span class="who">${icon('seller')}<b>${esc(seller.name)}</b>${store?` · ${esc(store.name)}`:''}</span>`;
-    const tabs = [['catalog','Catálogo','item'],['ventas','Ventas','sales'],['mine','Mis pedidos','orders']];
+    const tabs = [['catalog','Catálogo','item'],['mine','Mis pedidos','orders']];
     let body;
     if(state.sellerTab==='mine') body = renderMineOrders(seller);
-    else if(state.sellerTab==='ventas') body = renderVentasShell(seller.storeId);
     else body = renderStockSection('seller');
     return topbar(who) + `
       <div class="maintabs">${tabs.map(([id,label,ic])=>`<button class="${state.sellerTab===id?'active':''}" data-action="seller-tab" data-tab="${id}" type="button">${icon(ic)}${label}</button>`).join('')}</div>
@@ -1378,8 +1382,14 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     const m = state.modal;
     const items = state.data.items;
     const item = m.itemId ? byId(items, m.itemId) : null;
-    const titleMap = {entrada:'Registrar entrada', reserva:'Reservar para pedido', exposicion:'Pedir para exposición'};
-    const whOptions = state.data.warehouses.map(w=>`<option value="${w.id}">${esc(w.name)}</option>`).join('');
+    const titleMap = {entrada:'Registrar entrada', reserva:'Reservar para pedido', exposicion:'Pedir para exposición', vendido:'Marcar como vendido'};
+    const vend = vendidoWarehouse();
+    const salida = m.type!=='entrada';
+    const whOptions = state.data.warehouses.filter(w=>!vend || w.id!==vend.id).map(w=>{
+      const n = item ? stockIn(item, w.id) : null;
+      const off = salida && item && n<=0;
+      return `<option value="${w.id}" ${off?'disabled':''}>${esc(w.name)}${salida && item ? ` · ${n} disp.` : ''}</option>`;
+    }).join('');
     const itemInfo = item ? `
       <div class="card" style="margin:0;">
         <div style="display:flex;justify-content:space-between;gap:8px;"><b>${esc(familyName(item.familyId))} · ${esc(item.name)}</b><span class="tag">${esc(item.sku||'—')}</span></div>
@@ -1391,7 +1401,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
         </div>
       </div>` : '';
     if(m.type==='entrada'){
-      const destino = m.destino || 'stock';
+      const destino = 'stock';
       const pending = [];
       state.data.sales.forEach(s=>{
         (s.items||[]).forEach((l,idx)=>{
@@ -1400,10 +1410,6 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       });
       const pendingOptions = pending.map(p=>`<option value="${p.saleId}|${p.lineIdx}">${esc(p.clientName||'Cliente')} · ${esc(p.itemName)} x${p.qty}${p.supplierName?(' · Fabricante: '+esc(p.supplierName)):''}${p.note?(' ('+esc(p.note)+')'):''} · ${esc(p.storeName||'')}${p.pedidoNumber?(' · Pedido '+esc(p.pedidoNumber)):''}</option>`).join('');
       const body = `
-        <div class="subnav" style="margin-bottom:4px;">
-          <button type="button" class="${destino==='stock'?'active':''}" data-action="entrada-destino" data-destino="stock">Para stock</button>
-          <button type="button" class="${destino==='cliente'?'active':''}" data-action="entrada-destino" data-destino="cliente">Ya vendido a un cliente</button>
-        </div>
         ${destino==='stock' ? `
           ${!item ? `<div class="field"><label>Artículo</label><select data-field="itemId">
               <option value="">— seleccionar —</option>
@@ -1424,14 +1430,15 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       return;
     }
     const body = `
-      ${!item ? `<div class="field"><label>Artículo</label><select data-field="itemId">
+      ${!item ? `<div class="field"><label>Artículo</label><select data-field="itemId" data-action-change="mov-item">
           <option value="">— seleccionar —</option>
-          ${items.map(i=>`<option value="${i.id}">${esc(i.name)} (${esc(i.sku||'')})</option>`).join('')}
+          ${items.map(i=>{ const n = totalStock(i); return `<option value="${i.id}" ${n<=0?'disabled':''}>${esc(i.name)} (${esc(i.sku||'')}) · ${n} disp.</option>`; }).join('')}
         </select></div>` : itemInfo}
       <div class="field"><label>Almacén de origen</label><select data-field="warehouseId"><option value="">— seleccionar —</option>${whOptions}</select></div>
       <div class="field"><label>Cantidad</label><input type="number" min="1" step="1" data-field="qty" value="1"></div>
       ${m.type==='reserva' ? `<div class="field"><label>Cliente</label><input type="text" data-field="clientName" placeholder="Nombre del cliente"></div>` : ''}
-      ${(m.type==='reserva'||m.type==='exposicion') ? `<div class="field"><label>Tienda</label><select data-field="storeId"><option value="">— seleccionar —</option>${state.data.stores.map(s=>`<option value="${s.id}" ${state.sellerId && byId(state.data.sellers,state.sellerId) && byId(state.data.sellers,state.sellerId).storeId===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select></div>` : ''}
+      ${m.type==='vendido' ? `<div class="field"><label>Cliente o nota (opcional)</label><input type="text" data-field="clientName" placeholder="Ej. nombre del cliente"></div>` : ''}
+      ${(m.type==='reserva'||m.type==='exposicion'||m.type==='vendido') ? `<div class="field"><label>Tienda</label><select data-field="storeId"><option value="">— seleccionar —</option>${state.data.stores.map(s=>`<option value="${s.id}" ${state.sellerId && byId(state.data.sellers,state.sellerId) && byId(state.data.sellers,state.sellerId).storeId===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select></div>` : ''}
     `;
     appendModal(titleMap[m.type], body, 'save-movement');
   }
@@ -1464,8 +1471,10 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     const warehouseId = (document.querySelector('[data-field="warehouseId"]')||{}).value;
     if(!warehouseId){ showToast('Elige un almacén.'); return; }
     const qty = Math.max(1, Number((document.querySelector('[data-field="qty"]')||{}).value)||1);
+    const vendW = vendidoWarehouse();
+    if(vendW && warehouseId===vendW.id){ showToast('Las unidades del almacén "Vendido" ya no están disponibles.'); return; }
     const available = stockIn(item, warehouseId);
-    if(m.type!=='entrada' && qty>available){ showToast('No hay suficiente stock en ese almacén.'); return; }
+    if(m.type!=='entrada' && qty>available){ showToast('No hay suficiente stock en ese almacén: quedan '+available+'.'); return; }
     const seller = state.sellerId ? byId(state.data.sellers, state.sellerId) : null;
     const actorName = seller ? seller.name : 'Administrador';
     const storeField = document.querySelector('[data-field="storeId"]');
@@ -1487,6 +1496,15 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       const movId = await addDoc('movements', {type:'reserva', itemId:item.id, itemName:item.name, sku:item.sku||'', qty, warehouseId, warehouseName:warehouseName(warehouseId), clientName, pedidoId:nextPedido(), sellerId:seller?seller.id:null, storeId:storeId||'', storeName:storeName(storeId), actorName, status:'activo'});
       if(!movId) return;
       showToast('Reserva enviada.');
+    } else if(m.type==='vendido'){
+      const clientName = (document.querySelector('[data-field="clientName"]')||{}).value || '';
+      newStock[warehouseId] = Math.max(0,(Number(newStock[warehouseId])||0) - qty);
+      if(vendW) newStock[vendW.id] = (Number(newStock[vendW.id])||0) + qty;
+      const ok = await updateDoc('items', item.id, {stock:newStock});
+      if(!ok) return;
+      const movId = await addDoc('movements', {type:'vendido', itemId:item.id, itemName:item.name, sku:item.sku||'', qty, warehouseId, warehouseName:warehouseName(warehouseId), clientName, sellerId:seller?seller.id:null, storeId:storeId||'', storeName:storeId?storeName(storeId):'', actorName, status:'activo'});
+      if(!movId) return;
+      showToast('Marcado como vendido · ya no está disponible.');
     } else {
       newStock[warehouseId] = Math.max(0,(Number(newStock[warehouseId])||0) - qty);
       const ok = await updateDoc('items', item.id, {stock:newStock});
@@ -1500,15 +1518,18 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
   async function cancelMovement(id){
     const m = byId(state.data.movements, id);
     if(!m) return;
+    if(!m.warehouseId){ showToast('Esta reserva viene de una venta y no se puede cancelar aquí.'); return; }
     if(!window.confirm('¿Cancelar esto? El stock volverá al almacén.')) return;
     const item = byId(state.data.items, m.itemId);
     if(item){
       const newStock = {...(item.stock||{})};
       newStock[m.warehouseId] = (Number(newStock[m.warehouseId])||0) + Number(m.qty||0);
+      const vendC = vendidoWarehouse();
+      if(m.type==='vendido' && vendC) newStock[vendC.id] = Math.max(0,(Number(newStock[vendC.id])||0) - Number(m.qty||0));
       await updateDoc('items', item.id, {stock:newStock});
     }
     await updateDoc('movements', id, {status:'cancelado'});
-    showToast(m.type==='exposicion' ? 'Exposición cancelada.' : 'Reserva cancelada.');
+    showToast(m.type==='exposicion' ? 'Exposición cancelada.' : m.type==='vendido' ? 'Venta anulada · vuelve a estar disponible.' : 'Reserva cancelada.');
   }
 
   /* ---- cash modal ---- */
@@ -1554,22 +1575,12 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     const note = noteEl ? noteEl.value.trim() : '';
     snapshotSaleModalFields();
     state.saleDraftItems = state.saleDraftItems || [];
-    if(itemId==='__custom__'){
-      const supplierEl = document.getElementById('sale-item-supplier');
-      const nameEl = document.getElementById('sale-item-custom-name');
-      const supplierId = supplierEl ? supplierEl.value : '';
-      const productName = nameEl ? nameEl.value.trim() : '';
-      if(!supplierId){ showToast('Elige el fabricante.'); return; }
-      if(!productName){ showToast('Escribe el nombre del producto.'); return; }
-      const supplier = byId(state.data.suppliers, supplierId);
-      state.saleDraftItems.push({itemId:null, itemName:productName, sku:'', qty, orderType:'pedido', note, supplierId, supplierName:supplier?supplier.name:''});
-      render();
-      return;
-    }
-    const orderType = typeEl && typeEl.value==='pedido' ? 'pedido' : 'stock';
+    const orderType = 'stock';
     if(!itemId){ showToast('Elige un artículo.'); return; }
     const item = byId(state.data.items, itemId);
     if(!item) return;
+    const yaEnVenta = state.saleDraftItems.filter(l=>l.itemId===itemId).reduce((a,l)=>a+l.qty,0);
+    if(yaEnVenta + qty > totalStock(item)){ showToast('No hay stock suficiente: quedan '+Math.max(0,totalStock(item)-yaEnVenta)+' disponibles.'); return; }
     state.saleDraftItems.push({itemId, itemName:item.name, sku:item.sku||'', qty, orderType, note});
     render();
   }
@@ -1581,10 +1592,10 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
   function renderSaleModal(){
     const m = state.modal;
     const drafts = state.saleDraftItems || [];
-    const itemOptions = state.data.items.map(i=>`<option value="${i.id}">${esc(i.name)}${i.sku?` (${esc(i.sku)})`:''}</option>`).join('');
+    const itemOptions = state.data.items.map(i=>{ const n = totalStock(i); return `<option value="${i.id}" ${n<=0?'disabled':''}>${esc(i.name)}${i.sku?` (${esc(i.sku)})`:''} · ${n} disp.</option>`; }).join('');
     const supplierOptions = state.data.suppliers.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
     const linesHtml = drafts.length ? `<ul class="locs" style="border-top:1px dashed var(--border);margin-top:8px;padding-top:8px;">${drafts.map((l,idx)=>{
-      const tag = l.orderType==='pedido' ? '📋 de pedido' : '✓ de stock';
+      const tag = '✓ de stock';
       const fab = (!l.itemId && l.supplierName) ? ` <span style="color:var(--ink-soft);">· Fabricante: ${esc(l.supplierName)}</span>` : '';
       return `<li>${tag} · ${esc(l.itemName)} <b>x${l.qty}</b>${fab}${l.note?` <span style="color:var(--ink-soft);">(${esc(l.note)})</span>`:''} <button type="button" class="btn btn-ghost btn-sm" style="margin-left:auto;" data-action="remove-sale-item" data-idx="${idx}">${icon('trash')}</button></li>`;
     }).join('')}</ul>` : '';
@@ -1594,24 +1605,15 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       <div class="field">
         <label>Líneas de producto</label>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <select id="sale-item-select" style="flex:2;min-width:140px;" onchange="(function(sel){var c=document.getElementById('sale-item-custom-block');var t=document.getElementById('sale-item-type');if(sel.value==='__custom__'){c.style.display='flex';if(t){t.value='pedido';t.disabled=true;}}else{c.style.display='none';if(t){t.disabled=false;}}})(this)">
+          <select id="sale-item-select" style="flex:2;min-width:140px;">
             <option value="">— artículo —</option>${itemOptions}
-            <option value="__custom__">+ Producto nuevo (no está en el catálogo)</option>
           </select>
           <input type="number" id="sale-item-qty" min="1" step="1" value="1" style="flex:1;min-width:60px;">
-          <select id="sale-item-type" style="flex:1;min-width:110px;">
-            <option value="stock">De stock</option>
-            <option value="pedido">De pedido</option>
-          </select>
           <button type="button" class="btn btn-accent btn-sm" data-action="add-sale-item">${icon('plus')}</button>
         </div>
-        <div id="sale-item-custom-block" style="display:none;gap:8px;flex-wrap:wrap;margin-top:6px;">
-          <select id="sale-item-supplier" style="flex:1;min-width:140px;"><option value="">— fabricante —</option>${supplierOptions}</select>
-          <input type="text" id="sale-item-custom-name" placeholder="Nombre del producto a pedir" style="flex:2;min-width:160px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--ink);font-size:.85rem;">
-        </div>
-        <input type="text" id="sale-item-note" placeholder="Nota para el pedido (color, tela, medida…) — opcional" style="margin-top:6px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--ink);font-size:.85rem;width:100%;">
+        <input type="text" id="sale-item-note" placeholder="Nota (color, tela, medida…) — opcional" style="margin-top:6px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--ink);font-size:.85rem;width:100%;">
         ${linesHtml}
-        <p class="stock-hint">"De stock" descuenta del almacén si hay unidades. "De pedido" nunca descuenta stock — queda pendiente para pedirlo al fabricante, aunque haya unidades. Si el producto no está en tu catálogo, elige "+ Producto nuevo", indica el fabricante y escribe el nombre — se añadirá como pedido. Tras guardar la venta podrás descargar la hoja de pedido desde su ficha, para asociarla luego cuando llegue.</p>
+        <p class="stock-hint">Solo se venden artículos con stock disponible. Al guardar la venta se descuentan del almacén.</p>
       </div>
       <div class="field"><label>Notas adicionales</label><textarea data-field="itemsText" placeholder="2× Almohada Fibra&#10;1× 3 plazas Roma">${esc(m.itemsTextDraft||'')}</textarea></div>
       <div class="field"><label>Total (€)</label><input type="number" min="0" step="any" data-field="total" value="${esc(m.totalDraft||'')}"></div>
@@ -1672,7 +1674,13 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     const seller = state.sellerId ? byId(state.data.sellers, state.sellerId) : null;
     const clientName = get('clientName');
     const pedidoNumber = get('pedidoNumber');
-    const drafts = state.saleDraftItems || [];
+    const drafts = (state.saleDraftItems || []).filter(l=>l.itemId);
+    const pedidoPorArticulo = {};
+    drafts.forEach(l=>{ pedidoPorArticulo[l.itemId] = (pedidoPorArticulo[l.itemId]||0) + l.qty; });
+    for(const id of Object.keys(pedidoPorArticulo)){
+      const it = byId(state.data.items, id);
+      if(!it || pedidoPorArticulo[id] > totalStock(it)){ showToast('No hay stock suficiente de '+(it?it.name:'un artículo')+'.'); return; }
+    }
     const finalItems = [];
     let lineSeq = 1;
     for(const l of drafts){
@@ -1683,7 +1691,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       }
       const item = byId(state.data.items, l.itemId);
       if(!item) continue;
-      const orderType = l.orderType==='pedido' ? 'pedido' : 'stock';
+      const orderType = 'stock';
       let delivered = false;
       let sourceWarehouses = [];
       let handedOver = true;
@@ -1871,7 +1879,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
         <label>Productos detectados</label>
         <textarea id="import-text" rows="8" placeholder="Se rellena solo al leer el albarán…"></textarea>
       </div>
-      <p class="hint" style="color:var(--ink-soft);font-size:.78rem;">Si prefieres escribirlo tú, o si la lectura con IA no está disponible en esta vista: pega <b>SKU;Nombre;Cantidad;Precio</b> por línea (una línea por producto — pídeme a mí, en el chat, que te la prepare a partir de una foto del albarán) y pulsa "Importar".</p>
+      <p class="hint" style="color:var(--ink-soft);font-size:.78rem;">Si prefieres escribirlo tú, o si la lectura con IA no está disponible en esta vista: pega <b>SKU;Nombre;Cantidad;Precio</b> (y si quieres <b>;Familia;Medida;Tela</b>) por línea (una línea por producto — pídeme a mí, en el chat, que te la prepare a partir de una foto del albarán) y pulsa "Importar".</p>
     `;
     appendModal('Importar albarán', body, 'save-import', 'Importar');
     checkImageSupport();
@@ -1970,6 +1978,13 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       const sku = parts[0]||''; const name = parts[1]||sku||'Artículo sin nombre';
       const qty = Math.max(0, Number(parts[2])||0);
       const price = Number(parts[3])||0;
+      // Columnas opcionales: Familia;Medida;Tela/color
+      const famName = (parts[4]||'').toLowerCase();
+      const fam = famName ? state.data.families.find(f=>String(f.name||'').trim().toLowerCase()===famName) : null;
+      const extra = {};
+      if(fam) extra.familyId = fam.id;
+      if(parts[5]) extra.measure = parts[5];
+      if(parts[6]) extra.material = parts[6];
       if(!sku && !name) continue;
       if(qty<=0) continue;
       let item = state.data.items.find(i=>String(i.sku||'').toLowerCase()===sku.toLowerCase() && sku);
@@ -1982,7 +1997,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
         itemId = item.id; unitPrice = price||Number(item.price)||0;
         updated++;
       } else {
-        const newId = await addDoc('items', {name, sku, price, supplierId, stock:{[whId]: qty}});
+        const newId = await addDoc('items', {name, sku, price, supplierId, ...extra, stock:{[whId]: qty}});
         if(!newId) continue;
         itemId = newId; unitPrice = price;
         created++;
@@ -2016,6 +2031,8 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     });
     const restoreInput = document.getElementById('restore-file');
     if(restoreInput){ restoreInput.onchange = (e)=>{ const f=e.target.files[0]; if(f) restoreBackup(f); e.target.value=''; }; }
+    const movItemSel = document.querySelector('[data-action-change="mov-item"]');
+    if(movItemSel){ movItemSel.onchange = (e)=>{ if(state.modal && e.target.value){ state.modal.itemId = e.target.value; render(); } }; }
     const importInput = document.getElementById('import-file');
     if(importInput){ importInput.onchange = (e)=>{ const f=e.target.files[0]; if(f) extractAlbaranFile(f); }; }
     document.querySelectorAll('[data-toggle-sub]').forEach(el=>{
@@ -2070,6 +2087,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
         break;
       case 'reserve': state.modal = {kind:'movement', type:'reserva', itemId: el.dataset.id}; render(); break;
       case 'expose': state.modal = {kind:'movement', type:'exposicion', itemId: el.dataset.id}; render(); break;
+      case 'mark-sold': state.modal = {kind:'movement', type:'vendido', itemId: el.dataset.id}; render(); break;
       case 'open-movement': state.modal = {kind:'movement', type: el.dataset.type, itemId:null}; render(); break;
       case 'open-import': state.modal = {kind:'import'}; render(); break;
       case 'save-import': saveImport(); break;
