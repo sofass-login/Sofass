@@ -286,7 +286,7 @@ import { createBrowserClient } from '/vendor/supabase-ssr.js';
 const TABLE = 'app_docs';
 const PAGE = 1000;
 
-// Tiendas, almacenes y proveedores del prototipo de claude.ai. Se añaden una sola vez
+// Tiendas, almacenes, proveedores y familias del prototipo de claude.ai. Se añaden una sola vez
 // (marca en meta/import-prototipo-1) y solo si no existe ya uno con ese nombre.
 const PROTOTYPE_DOCS = {
   stores: [
@@ -322,6 +322,41 @@ const PROTOTYPE_DOCS = {
     ['w6du3am6ob41ebninsju', {name:'PEREZ E HIJOS', contact:'', createdAt:1789982806940}],
     ['wh4hpazifwet7z0mcgux', {name:'GLICERIO', contact:'', createdAt:1789982809062}],
     ['z9wj4v37jaty8hxihf5l', {name:'420.IXIA', contact:'', createdAt:1789982810390}],
+  ],  familyGroups: [
+    ['7fmz2s2ppqlk2ti50c7u', {name:'MUEBLES', createdAt:1789982815355}],
+    ['f0g23k76zvyp89g0tyba', {name:'Complementos', createdAt:1789982813586}],
+    ['i1nom62la8q79nk8wsov', {name:'Tapicería', createdAt:1789982805345}],
+    ['x8joswv5uc0remolc0fa', {name:'Colchonería', createdAt:1789982811270}],
+  ],
+  families: [
+    ['1mxopei20hgwrd61vdcc', {name:'Rinconera', groupId:'i1nom62la8q79nk8wsov', hasMeasure:true, hasMaterial:true, createdAt:1789982810024}],
+    ['2ggx6nom83ol92u14aqa', {name:'Sofá lineal', groupId:'i1nom62la8q79nk8wsov', hasMeasure:true, hasMaterial:true, createdAt:1789982810668}],
+    ['3fao20vcrseh5u8aj36j', {name:'Modular en U', groupId:'i1nom62la8q79nk8wsov', hasMeasure:true, hasMaterial:true, createdAt:1789982808781}],
+    ['3t472dm3krgrvwworjdn', {name:'3 plazas', groupId:'i1nom62la8q79nk8wsov', hasMeasure:true, hasMaterial:true, createdAt:1789982806612}],
+    ['5kkoqs6axnee8jeg6acw', {name:'Colchón', groupId:'x8joswv5uc0remolc0fa', hasMeasure:true, hasMaterial:true, createdAt:1789982813272}],
+    ['5plb1o6iaszune8zzisd', {name:'Cubre colchón', groupId:'f0g23k76zvyp89g0tyba', hasMeasure:true, hasMaterial:false, createdAt:1789982814545}],
+    ['653wwsaunl1jtdjk509n', {name:'Canapé', groupId:'x8joswv5uc0remolc0fa', hasMeasure:true, hasMaterial:true, createdAt:1789982812920}],
+    ['6a15k54wfdbnl75l5slz', {name:'PEREZ E HIJOS', groupId:'7fmz2s2ppqlk2ti50c7u', hasMeasure:false, hasMaterial:false, createdAt:1789982817875}],
+    ['6hhawqvmd1igstj0oa1n', {name:'Topper', groupId:'f0g23k76zvyp89g0tyba', hasMeasure:true, hasMaterial:false, createdAt:1789982815040}],
+    ['6ksnl4tts009ydcr2nw2', {name:'PEMI', groupId:'7fmz2s2ppqlk2ti50c7u', hasMeasure:false, hasMaterial:false, createdAt:1789982817470}],
+    ['938tlrppr0ixi4jfl5yx', {name:'TELAS & FABRIC', groupId:'7fmz2s2ppqlk2ti50c7u', hasMeasure:false, hasMaterial:false, createdAt:1789982818557}],
+    ['bgjdpx1vwyyst0q2s0tk', {name:'2 plazas', groupId:'i1nom62la8q79nk8wsov', hasMeasure:true, hasMaterial:true, createdAt:1789982806062}],
+    ['d434in1b1iz71dauqii8', {name:'Cubre almohada', groupId:'f0g23k76zvyp89g0tyba', hasMeasure:true, hasMaterial:false, createdAt:1789982814175}],
+    ['di12k75fo5uu4cb6z5g0', {name:'Butaca fija', groupId:'i1nom62la8q79nk8wsov', hasMeasure:true, hasMaterial:true, createdAt:1789982807268}],
+    ['e349lvl5wiwkdtndnoy1', {name:'Relax', groupId:'i1nom62la8q79nk8wsov', hasMeasure:true, hasMaterial:true, createdAt:1789982809426}],
+    ['edzt0i3h83r9pt074nyo', {name:'Nórdico', groupId:'f0g23k76zvyp89g0tyba', hasMeasure:true, hasMaterial:false, createdAt:1789982814793}],
+    ['h2e7pkkr3em8lnifa1w7', {name:'TENDENCIAS MARIN', groupId:'7fmz2s2ppqlk2ti50c7u', hasMeasure:false, hasMaterial:false, createdAt:1789982818916}],
+    ['i3ydrv6aftfgrks6c8w4', {name:'Bases tapizada', groupId:'x8joswv5uc0remolc0fa', hasMeasure:true, hasMaterial:true, createdAt:1789982811790}],
+    ['k2vlpay05i0uclaavdgi', {name:'RUDECA', groupId:'7fmz2s2ppqlk2ti50c7u', hasMeasure:false, hasMaterial:false, createdAt:1789982818230}],
+    ['l9nxk2027nks1q9bs5jg', {name:'GARPE', groupId:'7fmz2s2ppqlk2ti50c7u', hasMeasure:false, hasMaterial:false, createdAt:1789982815716}],
+    ['mhvnmurr5vytnwn634w6', {name:'GLICERIO', groupId:'7fmz2s2ppqlk2ti50c7u', hasMeasure:false, hasMaterial:false, createdAt:1789982815986}],
+    ['nzx4nsxec2tjk30ij7jt', {name:'Cama articulada', groupId:'x8joswv5uc0remolc0fa', hasMeasure:true, hasMaterial:true, createdAt:1789982812346}],
+    ['ohcifxo7iicrm3z3fry0', {name:'KAZZANO', groupId:'7fmz2s2ppqlk2ti50c7u', hasMeasure:false, hasMaterial:false, createdAt:1789982817199}],
+    ['p5znowxi3yb4wk5dqm86', {name:'Chaislong', groupId:'i1nom62la8q79nk8wsov', hasMeasure:true, hasMaterial:true, createdAt:1789982807912}],
+    ['rw72bgs130u3uqxu77qk', {name:'IXIA', groupId:'7fmz2s2ppqlk2ti50c7u', hasMeasure:false, hasMaterial:false, createdAt:1789982816874}],
+    ['sk8bj86s6rq5cyd9y8pq', {name:'Almohada', groupId:'f0g23k76zvyp89g0tyba', hasMeasure:true, hasMaterial:false, createdAt:1789982813908}],
+    ['t0o2f00l8ryiwszf0db3', {name:'GRUPO SEYS', groupId:'7fmz2s2ppqlk2ti50c7u', hasMeasure:false, hasMaterial:false, createdAt:1789982816313}],
+    ['tajrc3k8le2kovyegjl9', {name:'IMPORTA HOME', groupId:'7fmz2s2ppqlk2ti50c7u', hasMeasure:false, hasMaterial:false, createdAt:1789982816570}],
   ],
 };
 
@@ -334,13 +369,18 @@ async function importPrototypeOnce(supabase){
     if(done) return;
     const norm = s => String(s || '').trim().toLowerCase();
     const rows = [];
+    const groupIdMap = {}; // id de grupo del prototipo -> id del grupo que ya existe con ese nombre
     for(const [col, docs] of Object.entries(PROTOTYPE_DOCS)){
       const { data: existing, error: e2 } = await supabase.from(TABLE).select('id,data').eq('collection', col);
       if(e2) throw e2;
-      const names = new Set(existing.map(r => norm(r.data && r.data.name)));
+      const keyOf = d => col === 'families' ? norm(d.name) + '|' + (d.groupId || '') : norm(d.name);
+      const byKey = new Map(existing.map(r => [keyOf(r.data || {}), r.id]));
       const ids = new Set(existing.map(r => r.id));
       docs.forEach(([id, data]) => {
-        if(!names.has(norm(data.name)) && !ids.has(id)) rows.push({ collection: col, id, data });
+        if(col === 'families') data = { ...data, groupId: groupIdMap[data.groupId] || data.groupId };
+        const found = byKey.get(keyOf(data));
+        if(found){ if(col === 'familyGroups') groupIdMap[id] = found; return; }
+        if(!ids.has(id)) rows.push({ collection: col, id, data });
       });
     }
     if(rows.length){
