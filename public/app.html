@@ -286,6 +286,113 @@ import { createBrowserClient } from '/vendor/supabase-ssr.js';
 const TABLE = 'app_docs';
 const PAGE = 1000;
 
+// Tiendas, almacenes, proveedores y familias del prototipo de claude.ai. Se añaden una sola vez
+// (marca en meta/import-prototipo-1) y solo si no existe ya uno con ese nombre.
+const PROTOTYPE_DOCS = {
+  stores: [
+    ['7vzxkwdrcaie2orlwvc3', {name:'Sofáss Cáceres', address:'', createdAt:1789982804768}],
+    ['ani4uxs1u34d55w77bzm', {name:'Family Hogar', address:'', createdAt:1789982802149}],
+    ['ege8gx2dj4ef4m9ebpjb', {name:'Sofáss Chiclana', address:'', createdAt:1789982804212}],
+    ['s7229fatnk002569caiz', {name:'Sofáss Badajoz', address:'', createdAt:1789982801652}],
+    ['yc8fi424fvyi8aw44oom', {name:'Bajo Techo', address:'', createdAt:1789982803550}],
+    ['zgi3h2seikh8xqt30oil', {name:'Urban', address:'', createdAt:1789982802907}],
+  ],
+  warehouses: [
+    ['3q845qhb1amggf3g5pxz', {name:'Corazón de Jesús', location:'', createdAt:1789982801068}],
+    ['90x4ub7qdvvw4t3p4hw9', {name:'Family Hogar 2', location:'', createdAt:1789982800714}],
+    ['tc1vd6diajelem3il7y8', {name:'Vendido', location:'', createdAt:1790196942758}],
+    ['w05q0yis8wyyrpklu6ai', {name:'Family Hogar 1', location:'', createdAt:1789982800285}],
+    ['xmhkf2omlypqujuwyd0k', {name:'Merkamueble', location:'', createdAt:1789982801429}],
+  ],
+  suppliers: [
+    ['1fplsnxvbv3hbvzyij6g', {name:'GRUPO SEYS', contact:'', createdAt:1789982806339}],
+    ['2dzxmzcpcf4zgpc70ut3', {name:'Europa Descando', contact:'', createdAt:1789982805706}],
+    ['2gm0imvjfjbulz97bkzq', {name:'Sonpura', contact:'', createdAt:1789982801781}],
+    ['4e79yu139qvqp95o44fk', {name:'Juan Díaz', contact:'', createdAt:1789982805006}],
+    ['719vzkxcb5k95a6lf1k6', {name:'TELAS & FABRIC', contact:'', createdAt:1789982812109}],
+    ['eu3s60vswpr1xcc8nr5n', {name:'200.Europa Confort', contact:'', createdAt:1789982802506}],
+    ['fle77hodu0ak1av6ssih', {name:'MUÑOZ VILLA REAL', contact:'', createdAt:1789982810932}],
+    ['iguotvbcefpgs0yfjcnu', {name:'87.ITEM', contact:'', createdAt:1789982809708}],
+    ['jwcdelgda6vawc61rmyc', {name:'Tapizados Mayo', contact:'', createdAt:1789982803227}],
+    ['lzdqns56k4jy8iqxhgnv', {name:'RUDECA', contact:'', createdAt:1789982808427}],
+    ['oatxf04qdean15h4yoap', {name:'PEMI', contact:'', createdAt:1789982807589}],
+    ['t8pu7w4dw99mrrdv3a49', {name:'Gomarco', contact:'', createdAt:1789982803900}],
+    ['ubg9f1quix3ru8laslgi', {name:'Tapizados Mena', contact:'', createdAt:1789982804500}],
+    ['ue8oh3ylw7kt5sidckw1', {name:'TENDENCIAS MARIN', contact:'', createdAt:1789982811540}],
+    ['w6du3am6ob41ebninsju', {name:'PEREZ E HIJOS', contact:'', createdAt:1789982806940}],
+    ['wh4hpazifwet7z0mcgux', {name:'GLICERIO', contact:'', createdAt:1789982809062}],
+    ['z9wj4v37jaty8hxihf5l', {name:'420.IXIA', contact:'', createdAt:1789982810390}],
+  ],  familyGroups: [
+    ['7fmz2s2ppqlk2ti50c7u', {name:'MUEBLES', createdAt:1789982815355}],
+    ['f0g23k76zvyp89g0tyba', {name:'Complementos', createdAt:1789982813586}],
+    ['i1nom62la8q79nk8wsov', {name:'Tapicería', createdAt:1789982805345}],
+    ['x8joswv5uc0remolc0fa', {name:'Colchonería', createdAt:1789982811270}],
+  ],
+  families: [
+    ['1mxopei20hgwrd61vdcc', {name:'Rinconera', groupId:'i1nom62la8q79nk8wsov', hasMeasure:true, hasMaterial:true, createdAt:1789982810024}],
+    ['2ggx6nom83ol92u14aqa', {name:'Sofá lineal', groupId:'i1nom62la8q79nk8wsov', hasMeasure:true, hasMaterial:true, createdAt:1789982810668}],
+    ['3fao20vcrseh5u8aj36j', {name:'Modular en U', groupId:'i1nom62la8q79nk8wsov', hasMeasure:true, hasMaterial:true, createdAt:1789982808781}],
+    ['3t472dm3krgrvwworjdn', {name:'3 plazas', groupId:'i1nom62la8q79nk8wsov', hasMeasure:true, hasMaterial:true, createdAt:1789982806612}],
+    ['5kkoqs6axnee8jeg6acw', {name:'Colchón', groupId:'x8joswv5uc0remolc0fa', hasMeasure:true, hasMaterial:true, createdAt:1789982813272}],
+    ['5plb1o6iaszune8zzisd', {name:'Cubre colchón', groupId:'f0g23k76zvyp89g0tyba', hasMeasure:true, hasMaterial:false, createdAt:1789982814545}],
+    ['653wwsaunl1jtdjk509n', {name:'Canapé', groupId:'x8joswv5uc0remolc0fa', hasMeasure:true, hasMaterial:true, createdAt:1789982812920}],
+    ['6a15k54wfdbnl75l5slz', {name:'PEREZ E HIJOS', groupId:'7fmz2s2ppqlk2ti50c7u', hasMeasure:false, hasMaterial:false, createdAt:1789982817875}],
+    ['6hhawqvmd1igstj0oa1n', {name:'Topper', groupId:'f0g23k76zvyp89g0tyba', hasMeasure:true, hasMaterial:false, createdAt:1789982815040}],
+    ['6ksnl4tts009ydcr2nw2', {name:'PEMI', groupId:'7fmz2s2ppqlk2ti50c7u', hasMeasure:false, hasMaterial:false, createdAt:1789982817470}],
+    ['938tlrppr0ixi4jfl5yx', {name:'TELAS & FABRIC', groupId:'7fmz2s2ppqlk2ti50c7u', hasMeasure:false, hasMaterial:false, createdAt:1789982818557}],
+    ['bgjdpx1vwyyst0q2s0tk', {name:'2 plazas', groupId:'i1nom62la8q79nk8wsov', hasMeasure:true, hasMaterial:true, createdAt:1789982806062}],
+    ['d434in1b1iz71dauqii8', {name:'Cubre almohada', groupId:'f0g23k76zvyp89g0tyba', hasMeasure:true, hasMaterial:false, createdAt:1789982814175}],
+    ['di12k75fo5uu4cb6z5g0', {name:'Butaca fija', groupId:'i1nom62la8q79nk8wsov', hasMeasure:true, hasMaterial:true, createdAt:1789982807268}],
+    ['e349lvl5wiwkdtndnoy1', {name:'Relax', groupId:'i1nom62la8q79nk8wsov', hasMeasure:true, hasMaterial:true, createdAt:1789982809426}],
+    ['edzt0i3h83r9pt074nyo', {name:'Nórdico', groupId:'f0g23k76zvyp89g0tyba', hasMeasure:true, hasMaterial:false, createdAt:1789982814793}],
+    ['h2e7pkkr3em8lnifa1w7', {name:'TENDENCIAS MARIN', groupId:'7fmz2s2ppqlk2ti50c7u', hasMeasure:false, hasMaterial:false, createdAt:1789982818916}],
+    ['i3ydrv6aftfgrks6c8w4', {name:'Bases tapizada', groupId:'x8joswv5uc0remolc0fa', hasMeasure:true, hasMaterial:true, createdAt:1789982811790}],
+    ['k2vlpay05i0uclaavdgi', {name:'RUDECA', groupId:'7fmz2s2ppqlk2ti50c7u', hasMeasure:false, hasMaterial:false, createdAt:1789982818230}],
+    ['l9nxk2027nks1q9bs5jg', {name:'GARPE', groupId:'7fmz2s2ppqlk2ti50c7u', hasMeasure:false, hasMaterial:false, createdAt:1789982815716}],
+    ['mhvnmurr5vytnwn634w6', {name:'GLICERIO', groupId:'7fmz2s2ppqlk2ti50c7u', hasMeasure:false, hasMaterial:false, createdAt:1789982815986}],
+    ['nzx4nsxec2tjk30ij7jt', {name:'Cama articulada', groupId:'x8joswv5uc0remolc0fa', hasMeasure:true, hasMaterial:true, createdAt:1789982812346}],
+    ['ohcifxo7iicrm3z3fry0', {name:'KAZZANO', groupId:'7fmz2s2ppqlk2ti50c7u', hasMeasure:false, hasMaterial:false, createdAt:1789982817199}],
+    ['p5znowxi3yb4wk5dqm86', {name:'Chaislong', groupId:'i1nom62la8q79nk8wsov', hasMeasure:true, hasMaterial:true, createdAt:1789982807912}],
+    ['rw72bgs130u3uqxu77qk', {name:'IXIA', groupId:'7fmz2s2ppqlk2ti50c7u', hasMeasure:false, hasMaterial:false, createdAt:1789982816874}],
+    ['sk8bj86s6rq5cyd9y8pq', {name:'Almohada', groupId:'f0g23k76zvyp89g0tyba', hasMeasure:true, hasMaterial:false, createdAt:1789982813908}],
+    ['t0o2f00l8ryiwszf0db3', {name:'GRUPO SEYS', groupId:'7fmz2s2ppqlk2ti50c7u', hasMeasure:false, hasMaterial:false, createdAt:1789982816313}],
+    ['tajrc3k8le2kovyegjl9', {name:'IMPORTA HOME', groupId:'7fmz2s2ppqlk2ti50c7u', hasMeasure:false, hasMaterial:false, createdAt:1789982816570}],
+  ],
+};
+
+async function importPrototypeOnce(supabase){
+  const MARK = { collection: 'meta', id: 'import-prototipo-1' };
+  try{
+    const { data: done, error: e1 } = await supabase.from(TABLE).select('id')
+      .eq('collection', MARK.collection).eq('id', MARK.id).maybeSingle();
+    if(e1) throw e1;
+    if(done) return;
+    const norm = s => String(s || '').trim().toLowerCase();
+    const rows = [];
+    const groupIdMap = {}; // id de grupo del prototipo -> id del grupo que ya existe con ese nombre
+    for(const [col, docs] of Object.entries(PROTOTYPE_DOCS)){
+      const { data: existing, error: e2 } = await supabase.from(TABLE).select('id,data').eq('collection', col);
+      if(e2) throw e2;
+      const keyOf = d => col === 'families' ? norm(d.name) + '|' + (d.groupId || '') : norm(d.name);
+      const byKey = new Map(existing.map(r => [keyOf(r.data || {}), r.id]));
+      const ids = new Set(existing.map(r => r.id));
+      docs.forEach(([id, data]) => {
+        if(col === 'families') data = { ...data, groupId: groupIdMap[data.groupId] || data.groupId };
+        const found = byKey.get(keyOf(data));
+        if(found){ if(col === 'familyGroups') groupIdMap[id] = found; return; }
+        if(!ids.has(id)) rows.push({ collection: col, id, data });
+      });
+    }
+    if(rows.length){
+      const { error: e3 } = await supabase.from(TABLE).insert(rows);
+      if(e3) throw e3;
+    }
+    const { error: e4 } = await supabase.from(TABLE)
+      .insert({ ...MARK, data: { at: Date.now(), added: rows.length } });
+    if(e4) throw e4;
+  }catch(e){ console.error('Importación del prototipo', e); }
+}
+
 async function start(){
   const cfgRes = await fetch('/api/public-config', {credentials:'same-origin'});
   if(cfgRes.redirected || !cfgRes.ok){ location.href = '/login'; return new Promise(()=>{}); }
@@ -299,7 +406,8 @@ async function start(){
 
   function emit(col){
     const map = caches[col]; if(!map) return;
-    const docs = Array.from(map, ([id, data]) => ({ id, data: () => data }));
+    const docs = Array.from(map, ([id, data]) => ({ id, data: () => data }))
+      .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
     (listeners[col] || []).forEach(cb => { try{ cb({ docs }); }catch(e){ console.error(e); } });
   }
 
@@ -377,6 +485,8 @@ async function start(){
       };
     },
   };
+
+  await importPrototypeOnce(supabase);
 
   // "Salir" del todo (cerrar sesión de Supabase) desde la consola: window.sofassLogout()
   window.sofassLogout = async () => { await supabase.auth.signOut(); location.href = '/login'; };
