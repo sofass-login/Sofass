@@ -677,11 +677,11 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       <div class="role-grid">
         <button class="role-card" data-action="enter-admin" type="button">
           ${icon('admin')}<h3>Administrador</h3>
-          <p>Almacén, caja, ventas, movimientos y configuración.</p>
+          <p>Almacén, movimientos, valoración y configuración.</p>
         </button>
         <button class="role-card" data-action="enter-seller" type="button">
           ${icon('seller')}<h3>Vendedor</h3>
-          <p>Consulta el stock, registra ventas y gestiona la caja de tu tienda.</p>
+          <p>Consulta el stock disponible, reserva y marca lo vendido.</p>
         </button>
       </div>
     </div>`;
@@ -700,7 +700,6 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
   /* ================= ADMIN ================= */
   const ADMIN_TABS = [
     {id:'almacen', label:'Almacén', icon:'warehouse'},
-    {id:'ventas', label:'Ventas', icon:'sales'},
     {id:'valoracion', label:'Valoración', icon:'dash'},
     {id:'config', label:'Configuración', icon:'config'},
   ];
@@ -1275,10 +1274,9 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       return topbar('') + renderSellerPicker();
     }
     const who = `<span class="who">${icon('seller')}<b>${esc(seller.name)}</b>${store?` · ${esc(store.name)}`:''}</span>`;
-    const tabs = [['catalog','Catálogo','item'],['ventas','Ventas','sales'],['mine','Mis pedidos','orders']];
+    const tabs = [['catalog','Catálogo','item'],['mine','Mis pedidos','orders']];
     let body;
     if(state.sellerTab==='mine') body = renderMineOrders(seller);
-    else if(state.sellerTab==='ventas') body = renderVentasShell(seller.storeId);
     else body = renderStockSection('seller');
     return topbar(who) + `
       <div class="maintabs">${tabs.map(([id,label,ic])=>`<button class="${state.sellerTab===id?'active':''}" data-action="seller-tab" data-tab="${id}" type="button">${icon(ic)}${label}</button>`).join('')}</div>
