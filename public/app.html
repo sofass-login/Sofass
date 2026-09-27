@@ -675,11 +675,11 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       <div class="role-grid">
         <button class="role-card" data-action="enter-admin" type="button">
           ${icon('admin')}<h3>Administrador</h3>
-          <p>Almacén, caja, ventas, movimientos y configuración.</p>
+          <p>Stock, entradas, valoración y configuración.</p>
         </button>
         <button class="role-card" data-action="enter-seller" type="button">
           ${icon('seller')}<h3>Vendedor</h3>
-          <p>Consulta el stock, registra ventas y gestiona la caja de tu tienda.</p>
+          <p>Consulta el stock disponible para vender en tu tienda.</p>
         </button>
       </div>
     </div>`;
@@ -698,7 +698,6 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
   /* ================= ADMIN ================= */
   const ADMIN_TABS = [
     {id:'almacen', label:'Almacén', icon:'warehouse'},
-    {id:'ventas', label:'Ventas', icon:'sales'},
     {id:'valoracion', label:'Valoración', icon:'dash'},
     {id:'config', label:'Configuración', icon:'config'},
   ];
@@ -786,11 +785,9 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
         </div>
         ${locs.length ? `<ul class="locs">${locs.map(whId=>`<li>${icon('warehouse')} ${esc(warehouseName(whId))} <b>${r.stock[whId]}</b></li>`).join('')}</ul>` : `<div class="locs" style="border-top:1px dashed var(--border);padding-top:9px;color:var(--ink-soft);font-size:.82rem;">Sin stock en ningún almacén.</div>`}
         ${recent.length ? `<div class="log-mini">${recent.map(m=>`<div><span>${m.type==='reserva'?('Pedido '+m.pedidoId+' · '+esc(m.storeName||'')):(m.type==='exposicion'?('Exposición · '+esc(m.storeName||'')):(m.subtype==='cliente'?('Entrada cliente · '+esc(m.clientName||'')):('Entrada · '+esc(m.warehouseName||''))))}</span><span>${m.qty} uds.</span></div>`).join('')}</div>` : ''}
-        <div class="actions">
-          ${isAdmin?`<button class="btn btn-teal" data-action="reserve" data-id="${r.id}" type="button" ${total<=0?'disabled':''}>${icon('bookmark')} Reservar</button>`:''}
-          <button class="btn btn-navy" data-action="expose" data-id="${r.id}" type="button" ${total<=0?'disabled':''}>${icon('store')} Exposición</button>
-          ${isAdmin?`<button class="btn btn-ghost btn-sm" data-action="open-edit" data-entity="items" data-id="${r.id}" type="button">${icon('edit')}</button>`:''}
-        </div>
+        ${isAdmin?`<div class="actions">
+          <button class="btn" data-action="open-edit" data-entity="items" data-id="${r.id}" type="button">${icon('edit')} Editar</button>
+        </div>`:''}
       </div>`;
     }).join('');
   }
@@ -925,25 +922,19 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     if(state.movFilter!=='todos') rows = rows.filter(m=>m.type===state.movFilter);
     rows.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
     return `
-    <div class="section-head"><div><h2>Movimientos</h2><p>${isAdmin?'Entradas, reservas y peticiones de exposición.':'Peticiones de exposición y entradas asignadas a tus ventas.'}</p></div></div>
+    <div class="section-head"><div><h2>Movimientos</h2><p>Entradas de stock en los almacenes.</p></div></div>
     ${isAdmin ? `
       <div class="action-row">
         <button class="btn btn-accent btn-block" data-action="toggle-mov-actions" type="button">${icon('plus')} Nueva acción</button>
       </div>
       ${state.movActionsOpen ? `
-        <div class="action-row">
-          <button class="btn btn-accent" data-action="open-movement" data-type="entrada" type="button">${icon('down')} Registrar entrada</button>
-          <button class="btn btn-teal" data-action="open-movement" data-type="reserva" type="button">${icon('bookmark')} Reservar para pedido</button>
-        </div>
-        <div class="action-row"><button class="btn btn-navy btn-block" data-action="open-movement" data-type="exposicion" type="button">${icon('store')} Pedir para exposición</button></div>
+        <div class="action-row"><button class="btn btn-accent btn-block" data-action="open-movement" data-type="entrada" type="button">${icon('down')} Registrar entrada</button></div>
         <div class="action-row"><button class="btn btn-teal btn-block" data-action="open-import" type="button">${icon('down')} Importar albarán</button></div>
       ` : ''}
-    ` : `
-      <div class="action-row"><button class="btn btn-navy btn-block" data-action="open-movement" data-type="exposicion" type="button">${icon('store')} Pedir para exposición</button></div>
-    `}
+    ` : ''}
     <div class="eyebrow" style="margin-top:8px;">Historial</div>
     <div class="subnav">
-      ${[['todos','Todos'],['entrada','Entrada'],['reserva','Reserva'],['exposicion','Exposición']].map(([id,label])=>`<button class="${state.movFilter===id?'active':''}" data-action="mov-filter" data-filter="${id}" type="button">${label}</button>`).join('')}
+      ${[['todos','Todos'],['entrada','Entrada']].map(([id,label])=>`<button class="${state.movFilter===id?'active':''}" data-action="mov-filter" data-filter="${id}" type="button">${label}</button>`).join('')}
     </div>
     ${rows.length===0 ? `<div class="empty">No hay movimientos todavía.</div>` : rows.map(m=>renderMovementItem(m)).join('')}
     `;
@@ -1269,11 +1260,8 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       return topbar('') + renderSellerPicker();
     }
     const who = `<span class="who">${icon('seller')}<b>${esc(seller.name)}</b>${store?` · ${esc(store.name)}`:''}</span>`;
-    const tabs = [['catalog','Catálogo','item'],['ventas','Ventas','sales'],['mine','Mis pedidos','orders']];
-    let body;
-    if(state.sellerTab==='mine') body = renderMineOrders(seller);
-    else if(state.sellerTab==='ventas') body = renderVentasShell(seller.storeId);
-    else body = renderStockSection('seller');
+    const tabs = [['catalog','Catálogo','item']];
+    const body = renderStockSection('seller');
     return topbar(who) + `
       <div class="maintabs">${tabs.map(([id,label,ic])=>`<button class="${state.sellerTab===id?'active':''}" data-action="seller-tab" data-tab="${id}" type="button">${icon(ic)}${label}</button>`).join('')}</div>
       <div class="main">${body}</div>`;
