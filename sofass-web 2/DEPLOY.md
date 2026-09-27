@@ -14,7 +14,7 @@
 8. Ve a Authentication → Providers y confirma que "Email" está activado (lo está
    por defecto).
 9. Ve a Authentication → URL Configuration y, cuando tengas ya el dominio de Vercel
-   (paso 3), ponlo ahí como "Site URL" (por ejemplo `https://sofass.vercel.app`).
+   (paso 3), ponlo ahí como "Site URL" (por ejemplo `https://sofass-logistica.vercel.app`).
 
 ## 2. Conseguir las claves del proyecto
 
@@ -34,9 +34,9 @@ En Supabase → Project Settings (engranaje) → API, copia:
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = tu anon public key
    - `SUPABASE_SERVICE_ROLE_KEY` = tu service_role key
    - `NEXT_PUBLIC_SITE_URL` = (lo rellenas tras el primer despliegue, con la URL que
-     te da Vercel, p.ej. `https://sofass.vercel.app`) — luego "Redeploy".
+     te da Vercel, p.ej. `https://sofass-logistica.vercel.app`) — luego "Redeploy".
 4. Pulsa "Deploy". En 1-2 minutos tendrás tu web funcionando en una URL tipo
-   `https://sofass.vercel.app`.
+   `https://sofass-logistica.vercel.app`.
 
 ## 4. Crear tu primer usuario administrador
 
