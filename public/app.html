@@ -245,7 +245,32 @@
   #qr-reader video{border-radius:10px;}
   .scan-hint{font-size:.8rem;color:var(--ink-soft);text-align:center;}
   .toast.show{opacity:1;bottom:28px;}
-  .sup-table td{padding:6px 8px;}
+  .sup-table td{padding:6px 8px;vertical-align:top;}
+  .main.main-wide{max-width:1500px;}
+  /* Ordenador: la tabla cabe entera sin desplazar. */
+  @media (min-width:900px){
+    .main-wide .sup-table{table-layout:fixed;}
+    .main-wide .sup-table th:nth-child(1){width:84px;}
+    .main-wide .sup-table th:nth-child(2){width:17%;}
+    .main-wide .sup-table th:nth-child(3){width:15%;}
+    .main-wide .sup-table th:nth-child(4){width:24%;}
+    .main-wide .sup-table th:nth-child(5){width:150px;}
+    .main-wide .sup-table th:nth-child(7){width:52px;}
+    .main-wide .sup-table .sup-input, .main-wide .sup-table .pvp-list{min-width:0;}
+  }
+  /* Móvil: cada proveedor es una ficha con los campos uno debajo de otro. */
+  @media (max-width:899px){
+    .sup-table, .sup-table tbody, .sup-table tr, .sup-table td{display:block;width:100%;}
+    .sup-table thead{display:none;}
+    .sup-table{border:none;background:transparent;}
+    .sup-table tr{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:12px;position:relative;}
+    .sup-table tbody tr:hover{background:var(--surface);}
+    .sup-table td{border:none;padding:5px 0;}
+    .sup-table td[data-label]:not(.sup-del)::before{content:attr(data-label);display:block;font-family:var(--font-mono);font-size:.66rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:4px;}
+    .sup-table td.sup-del{position:absolute;top:6px;right:8px;width:auto;padding:0;}
+    .sup-table td[data-label="Nº prov"]{padding-right:44px;}
+    .sup-table .sup-input, .sup-table .pvp-list{min-width:0;}
+  }
   .sup-input{width:100%;min-width:110px;padding:7px 9px;border:1px solid var(--border);border-radius:7px;background:var(--bg);color:var(--ink);font-size:.85rem;font-family:inherit;}
   .sup-input[data-sup-key="pvpPoints"]{min-width:80px;font-family:var(--font-mono);}
   .sup-input[type="date"]{min-width:140px;}
@@ -724,7 +749,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       <div class="maintabs">
         ${ADMIN_TABS.map(t=>`<button class="${state.adminTab===t.id?'active':''}" data-action="admin-tab" data-tab="${t.id}" type="button">${icon(t.icon)}${t.label}</button>`).join('')}
       </div>
-      <div class="main">${renderAdminMain()}</div>`;
+      <div class="main${state.adminTab==='config' && state.configTab==='suppliers' ? ' main-wide' : ''}">${renderAdminMain()}</div>`;
   }
   function renderAdminMain(){
     switch(state.adminTab){
@@ -1118,13 +1143,13 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     ${rows.length===0 ? `<div class="empty">Todavía no hay proveedores.</div>` : `
     <div class="table-wrap"><table class="sup-table"><thead><tr><th>Nº prov</th><th>Nombre</th><th>Familia</th><th>Puntos PVP</th><th>Fecha actualización</th><th>Datos proveedor</th><th></th></tr></thead><tbody>
       ${rows.map(r=>`<tr>
-        <td>${cell(r,'provNumber','text','Nº')}</td>
-        <td><textarea class="sup-input sup-name sup-grow" rows="1" data-sup-id="${r.id}" data-sup-key="name" placeholder="Nombre">${esc(r.name||'')}</textarea></td>
-        <td><textarea class="sup-input sup-family sup-grow" rows="1" data-sup-id="${r.id}" data-sup-key="family" placeholder="Familia">${esc(r.family||'')}</textarea></td>
-        <td>${renderPvpCell(r)}</td>
-        <td>${cell(r,'updatedOn','date','')}</td>
-        <td><textarea class="sup-input sup-notes sup-grow" rows="2" data-sup-id="${r.id}" data-sup-key="supplierData" placeholder="Teléfono, email, dirección, contacto…">${esc(r.supplierData!=null ? r.supplierData : (r.contact||''))}</textarea></td>
-        <td><button class="btn btn-ghost btn-sm btn-danger" data-action="delete" data-entity="suppliers" data-id="${r.id}" type="button" title="Eliminar proveedor">${icon('trash')}</button></td>
+        <td data-label="Nº prov">${cell(r,'provNumber','text','Nº')}</td>
+        <td data-label="Nombre"><textarea class="sup-input sup-name sup-grow" rows="1" data-sup-id="${r.id}" data-sup-key="name" placeholder="Nombre">${esc(r.name||'')}</textarea></td>
+        <td data-label="Familia"><textarea class="sup-input sup-family sup-grow" rows="1" data-sup-id="${r.id}" data-sup-key="family" placeholder="Familia">${esc(r.family||'')}</textarea></td>
+        <td data-label="Puntos PVP">${renderPvpCell(r)}</td>
+        <td data-label="Fecha actualización">${cell(r,'updatedOn','date','')}</td>
+        <td data-label="Datos proveedor"><textarea class="sup-input sup-notes sup-grow" rows="2" data-sup-id="${r.id}" data-sup-key="supplierData" placeholder="Teléfono, email, dirección, contacto…">${esc(r.supplierData!=null ? r.supplierData : (r.contact||''))}</textarea></td>
+        <td data-label="" class="sup-del"><button class="btn btn-ghost btn-sm btn-danger" data-action="delete" data-entity="suppliers" data-id="${r.id}" type="button" title="Eliminar proveedor">${icon('trash')}</button></td>
       </tr>`).join('')}
     </tbody></table></div>`}
     <div class="toolbar" style="margin-top:12px;">
