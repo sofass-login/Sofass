@@ -252,6 +252,7 @@
   .sup-input[data-sup-key="provNumber"]{min-width:70px;font-family:var(--font-mono);}
   .sup-grow{resize:none;overflow:hidden;line-height:1.35;white-space:pre-wrap;word-break:break-word;}
   .sup-name{min-width:210px;}
+  .sup-family{min-width:200px;}
   .sup-notes{min-width:320px;}
   .pvp-list{display:flex;flex-direction:column;gap:6px;min-width:230px;}
   .pvp-row{display:flex;gap:6px;align-items:center;}
@@ -1119,7 +1120,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       ${rows.map(r=>`<tr>
         <td>${cell(r,'provNumber','text','Nº')}</td>
         <td><textarea class="sup-input sup-name sup-grow" rows="1" data-sup-id="${r.id}" data-sup-key="name" placeholder="Nombre">${esc(r.name||'')}</textarea></td>
-        <td>${cell(r,'family','text','Familia')}</td>
+        <td><textarea class="sup-input sup-family sup-grow" rows="1" data-sup-id="${r.id}" data-sup-key="family" placeholder="Familia">${esc(r.family||'')}</textarea></td>
         <td>${renderPvpCell(r)}</td>
         <td>${cell(r,'updatedOn','date','')}</td>
         <td><textarea class="sup-input sup-notes sup-grow" rows="2" data-sup-id="${r.id}" data-sup-key="supplierData" placeholder="Teléfono, email, dirección, contacto…">${esc(r.supplierData!=null ? r.supplierData : (r.contact||''))}</textarea></td>
@@ -2151,8 +2152,8 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       inp.onchange = ()=>onPvpChange(inp);
     });
     document.querySelectorAll('[data-sup-id]').forEach(inp=>{
-      const isName = inp.dataset.supKey==='name';
-      if(inp.tagName!=='TEXTAREA' || isName) inp.onkeydown = (e)=>{ if(e.key==='Enter'){ e.preventDefault(); inp.blur(); } };
+      const singleLine = inp.dataset.supKey==='name' || inp.dataset.supKey==='family';
+      if(inp.tagName!=='TEXTAREA' || singleLine) inp.onkeydown = (e)=>{ if(e.key==='Enter'){ e.preventDefault(); inp.blur(); } };
       if(inp.classList.contains('sup-grow')){
         // La casilla crece con el texto para que se vea entero.
         const fit = ()=>{ inp.style.height = 'auto'; inp.style.height = inp.scrollHeight + 'px'; };
