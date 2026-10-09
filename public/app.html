@@ -247,6 +247,8 @@
   .toast.show{opacity:1;bottom:28px;}
   .sup-table td{padding:6px 8px;vertical-align:top;}
   .main.main-wide{max-width:1500px;}
+  .sup-search input{flex:1;}
+  .sup-count{margin:-6px 0 10px;color:var(--ink-soft);font-size:.82rem;}
   /* Ordenador: la tabla cabe entera sin desplazar. */
   @media (min-width:900px){
     .main-wide .sup-table{table-layout:fixed;}
@@ -1135,12 +1137,25 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       default: return '';
     }
   }
+  // Para buscar sin importar mayúsculas ni tildes ("colchoneria" encuentra "Colchonería").
+  const normSearch = v => String(v==null?'':v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  function supplierSearchText(r){
+    const pvp = supplierPvpList(r).map(p=>`${p.label||''} ${p.value===''||p.value==null?'':String(p.value)+' '+String(p.value).replace('.',',')}`).join(' ');
+    return normSearch([r.provNumber, r.name, r.family, pvp, r.updatedOn, r.updatedOn?new Date(r.updatedOn).toLocaleDateString('es-ES'):'', r.supplierData!=null?r.supplierData:r.contact].join(' '));
+  }
   function renderSuppliersConfig(){
-    const rows = state.data.suppliers;
+    const all = state.data.suppliers;
+    const q = normSearch(state.supplierSearch||'').trim();
+    const rows = q ? all.filter(r=>{ const t = supplierSearchText(r); return q.split(/\s+/).every(w=>t.includes(w)); }) : all;
     const cell = (r, key, type, ph) => `<input class="sup-input" type="${type}" ${type==='text'&&key==='pvpPoints'?'inputmode="decimal"':''} data-sup-id="${r.id}" data-sup-key="${key}" value="${esc(key==='pvpPoints' && r[key]!=null && r[key]!=='' ? String(r[key]).replace('.',',') : (r[key]||''))}" placeholder="${ph}">`;
     return `
     <div class="section-head"><div><p>Fabricantes que suministran artículos. Toca cualquier campo para cambiarlo; se guarda al salir del recuadro. Déjalo vacío para borrarlo.</p></div></div>
-    ${rows.length===0 ? `<div class="empty">Todavía no hay proveedores.</div>` : `
+    <div class="toolbar sup-search">
+      <input type="text" id="supplier-search" placeholder="Buscar por nº, nombre, familia, puntos, fecha o datos…" value="${esc(state.supplierSearch||'')}" autocomplete="off">
+      ${q ? `<button class="btn btn-ghost" data-action="supplier-search-clear" type="button">Limpiar</button>` : ''}
+    </div>
+    ${q ? `<p class="sup-count">${rows.length} de ${all.length} proveedores</p>` : ''}
+    ${all.length===0 ? `<div class="empty">Todavía no hay proveedores.</div>` : rows.length===0 ? `<div class="empty">Ningún proveedor coincide con «${esc(state.supplierSearch)}».</div>` : `
     <div class="table-wrap"><table class="sup-table"><thead><tr><th>Nº prov</th><th>Nombre</th><th>Familia</th><th>Puntos PVP</th><th>Fecha actualización</th><th>Datos proveedor</th><th></th></tr></thead><tbody>
       ${rows.map(r=>`<tr>
         <td data-label="Nº prov">${cell(r,'provNumber','text','Nº')}</td>
@@ -2153,6 +2168,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
   function wireEvents(){
     document.querySelectorAll('[data-action]').forEach(el=>{ el.onclick = onAction; });
     bindLiveInput('search-input','search');
+    bindLiveInput('supplier-search','supplierSearch');
     bindLiveInput('admin-item-search','adminItemSearch');
     bindLiveInput('caja-search','cajaSearch');
     bindLiveInput('ventas-search','ventasSearch');
@@ -2266,6 +2282,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       case 'remove-sale-item': removeSaleItem(Number(el.dataset.idx)); break;
       case 'entrada-destino': state.modal.destino = el.dataset.destino; render(); break;
       case 'quick-add': quickAdd(el.dataset.entity); render(); break;
+      case 'supplier-search-clear': state.supplierSearch = ''; render(); break;
       case 'pvp-add': {
         const sup = byId(state.data.suppliers, el.dataset.id);
         if(sup) saveSupplierPvp(sup.id, [...supplierPvpList(sup), {label:'', value:''}], false);
