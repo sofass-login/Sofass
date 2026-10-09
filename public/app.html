@@ -253,6 +253,12 @@
   .sup-grow{resize:none;overflow:hidden;line-height:1.35;white-space:pre-wrap;word-break:break-word;}
   .sup-name{min-width:210px;}
   .sup-notes{min-width:320px;}
+  .pvp-list{display:flex;flex-direction:column;gap:6px;min-width:230px;}
+  .pvp-row{display:flex;gap:6px;align-items:center;}
+  .pvp-row .pvp-label{min-width:0;flex:1.4;}
+  .pvp-row .pvp-value{min-width:0;flex:1;font-family:var(--font-mono);}
+  .pvp-row .btn{flex:0 0 auto;padding:4px 9px;font-size:1rem;line-height:1;}
+  .pvp-add{align-self:flex-start;}
   .price-input{width:84px;padding:6px 8px;border:1px solid var(--border);border-radius:7px;background:var(--bg);color:var(--ink);font-size:.85rem;font-family:var(--font-mono);}
 </style>
 </head>
@@ -1114,7 +1120,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
         <td>${cell(r,'provNumber','text','Nº')}</td>
         <td><textarea class="sup-input sup-name sup-grow" rows="1" data-sup-id="${r.id}" data-sup-key="name" placeholder="Nombre">${esc(r.name||'')}</textarea></td>
         <td>${cell(r,'family','text','Familia')}</td>
-        <td>${cell(r,'pvpPoints','text','0,00')}</td>
+        <td>${renderPvpCell(r)}</td>
         <td>${cell(r,'updatedOn','date','')}</td>
         <td><textarea class="sup-input sup-notes sup-grow" rows="2" data-sup-id="${r.id}" data-sup-key="supplierData" placeholder="Teléfono, email, dirección, contacto…">${esc(r.supplierData!=null ? r.supplierData : (r.contact||''))}</textarea></td>
         <td><button class="btn btn-ghost btn-sm btn-danger" data-action="delete" data-entity="suppliers" data-id="${r.id}" type="button" title="Eliminar proveedor">${icon('trash')}</button></td>
@@ -1125,6 +1131,51 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       <button class="btn btn-accent" data-action="quick-add" data-entity="suppliers" type="button">${icon('plus')}</button>
     </div>
     `;
+  }
+  // Varios puntos PVP por proveedor: lista [{label, value}]. Si solo hay el dato antiguo (pvpPoints), se usa como primera casilla.
+  function supplierPvpList(r){
+    if(Array.isArray(r.pvpList)) return r.pvpList;
+    return (r.pvpPoints!=null && r.pvpPoints!=='') ? [{label:'', value:r.pvpPoints}] : [{label:'', value:''}];
+  }
+  function renderPvpCell(r){
+    const list = supplierPvpList(r);
+    const fmt = v => (v===''||v==null) ? '' : String(v).replace('.',',');
+    return `<div class="pvp-list">
+      ${list.map((p,idx)=>`<div class="pvp-row">
+        <input class="sup-input pvp-label" type="text" data-pvp-sup="${r.id}" data-pvp-idx="${idx}" data-pvp-field="label" value="${esc(p.label||'')}" placeholder="Concepto">
+        <input class="sup-input pvp-value" type="text" inputmode="decimal" data-pvp-sup="${r.id}" data-pvp-idx="${idx}" data-pvp-field="value" value="${esc(fmt(p.value))}" placeholder="0,00">
+        <button class="btn btn-ghost btn-sm btn-danger" data-action="pvp-remove" data-id="${r.id}" data-idx="${idx}" type="button" title="Quitar estos puntos">×</button>
+      </div>`).join('')}
+      <button class="btn btn-ghost btn-sm pvp-add" data-action="pvp-add" data-id="${r.id}" type="button">${icon('plus')} Añadir puntos</button>
+    </div>`;
+  }
+  async function saveSupplierPvp(supId, list, touchDate){
+    const clean = list.map(p=>({label:String(p.label||'').trim(), value:p.value}));
+    const first = clean.find(p=>p.value!=='' && p.value!=null);
+    const patch = {pvpList: clean, pvpPoints: first ? first.value : ''};
+    // Al cambiar unos puntos, la fecha de actualización pasa a hoy (se puede cambiar a mano).
+    if(touchDate) patch.updatedOn = new Date().toLocaleDateString('sv-SE');
+    return updateDoc('suppliers', supId, patch);
+  }
+  function readPvpFromDom(supId){
+    const list = [];
+    document.querySelectorAll(`[data-pvp-sup="${supId}"]`).forEach(inp=>{
+      const i = Number(inp.dataset.pvpIdx);
+      list[i] = list[i] || {label:'', value:''};
+      if(inp.dataset.pvpField==='label') list[i].label = inp.value;
+      else {
+        const raw = String(inp.value).trim();
+        list[i].value = raw==='' ? '' : Number(raw.replace(',', '.'));
+      }
+    });
+    return list.filter(Boolean);
+  }
+  async function onPvpChange(inp){
+    const supId = inp.dataset.pvpSup;
+    const list = readPvpFromDom(supId);
+    if(list.some(p=>p.value!=='' && !(p.value>=0))){ showToast('Puntos PVP no válidos.'); return; }
+    const ok = await saveSupplierPvp(supId, list, inp.dataset.pvpField==='value' && String(inp.value).trim()!=='');
+    if(ok) showToast(String(inp.value).trim()==='' ? 'Borrado.' : 'Guardado.');
   }
   async function saveSupplierField(inp){
     const id = inp.dataset.supId, key = inp.dataset.supKey;
@@ -2095,6 +2146,10 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     });
     const restoreInput = document.getElementById('restore-file');
     if(restoreInput){ restoreInput.onchange = (e)=>{ const f=e.target.files[0]; if(f) restoreBackup(f); e.target.value=''; }; }
+    document.querySelectorAll('[data-pvp-sup]').forEach(inp=>{
+      inp.onkeydown = (e)=>{ if(e.key==='Enter'){ e.preventDefault(); inp.blur(); } };
+      inp.onchange = ()=>onPvpChange(inp);
+    });
     document.querySelectorAll('[data-sup-id]').forEach(inp=>{
       const isName = inp.dataset.supKey==='name';
       if(inp.tagName!=='TEXTAREA' || isName) inp.onkeydown = (e)=>{ if(e.key==='Enter'){ e.preventDefault(); inp.blur(); } };
@@ -2185,6 +2240,20 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       case 'remove-sale-item': removeSaleItem(Number(el.dataset.idx)); break;
       case 'entrada-destino': state.modal.destino = el.dataset.destino; render(); break;
       case 'quick-add': quickAdd(el.dataset.entity); render(); break;
+      case 'pvp-add': {
+        const sup = byId(state.data.suppliers, el.dataset.id);
+        if(sup) saveSupplierPvp(sup.id, [...supplierPvpList(sup), {label:'', value:''}], false);
+        break;
+      }
+      case 'pvp-remove': {
+        const sup = byId(state.data.suppliers, el.dataset.id);
+        if(!sup) break;
+        const list = supplierPvpList(sup).slice();
+        list.splice(Number(el.dataset.idx), 1);
+        if(list.length===0) list.push({label:'', value:''});
+        saveSupplierPvp(sup.id, list, false).then(ok=>{ if(ok) showToast('Puntos quitados.'); });
+        break;
+      }
       case 'add-seller': addSeller(); break;
       case 'regen-code': regenCode(el.dataset.id); break;
       case 'toggle-blocked': toggleBlocked(el.dataset.id); break;
