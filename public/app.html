@@ -249,6 +249,8 @@
   .sup-input{width:100%;min-width:110px;padding:7px 9px;border:1px solid var(--border);border-radius:7px;background:var(--bg);color:var(--ink);font-size:.85rem;font-family:inherit;}
   .sup-input[data-sup-key="pvpPoints"]{min-width:80px;font-family:var(--font-mono);}
   .sup-input[type="date"]{min-width:140px;}
+  .sup-input[data-sup-key="provNumber"]{min-width:70px;font-family:var(--font-mono);}
+  .sup-notes{min-width:220px;resize:vertical;line-height:1.35;}
   .price-input{width:84px;padding:6px 8px;border:1px solid var(--border);border-radius:7px;background:var(--bg);color:var(--ink);font-size:.85rem;font-family:var(--font-mono);}
 </style>
 </head>
@@ -1105,12 +1107,14 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     return `
     <div class="section-head"><div><p>Fabricantes que suministran artículos. Toca cualquier campo para cambiarlo; se guarda al salir del recuadro. Déjalo vacío para borrarlo.</p></div></div>
     ${rows.length===0 ? `<div class="empty">Todavía no hay proveedores.</div>` : `
-    <div class="table-wrap"><table class="sup-table"><thead><tr><th>Nombre</th><th>Familia</th><th>Puntos PVP</th><th>Fecha actualización</th><th></th></tr></thead><tbody>
+    <div class="table-wrap"><table class="sup-table"><thead><tr><th>Nº prov</th><th>Nombre</th><th>Familia</th><th>Puntos PVP</th><th>Fecha actualización</th><th>Datos proveedor</th><th></th></tr></thead><tbody>
       ${rows.map(r=>`<tr>
+        <td>${cell(r,'provNumber','text','Nº')}</td>
         <td>${cell(r,'name','text','Nombre')}</td>
         <td>${cell(r,'family','text','Familia')}</td>
         <td>${cell(r,'pvpPoints','text','0,00')}</td>
         <td>${cell(r,'updatedOn','date','')}</td>
+        <td><textarea class="sup-input sup-notes" rows="2" data-sup-id="${r.id}" data-sup-key="supplierData" placeholder="Teléfono, email, dirección, contacto…">${esc(r.supplierData!=null ? r.supplierData : (r.contact||''))}</textarea></td>
         <td><button class="btn btn-ghost btn-sm btn-danger" data-action="delete" data-entity="suppliers" data-id="${r.id}" type="button" title="Eliminar proveedor">${icon('trash')}</button></td>
       </tr>`).join('')}
     </tbody></table></div>`}
@@ -2090,7 +2094,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     const restoreInput = document.getElementById('restore-file');
     if(restoreInput){ restoreInput.onchange = (e)=>{ const f=e.target.files[0]; if(f) restoreBackup(f); e.target.value=''; }; }
     document.querySelectorAll('[data-sup-id]').forEach(inp=>{
-      inp.onkeydown = (e)=>{ if(e.key==='Enter') inp.blur(); };
+      if(inp.tagName!=='TEXTAREA') inp.onkeydown = (e)=>{ if(e.key==='Enter') inp.blur(); };
       inp.onchange = ()=>saveSupplierField(inp);
     });
     document.querySelectorAll('[data-price-item]').forEach(inp=>{
