@@ -245,6 +245,10 @@
   #qr-reader video{border-radius:10px;}
   .scan-hint{font-size:.8rem;color:var(--ink-soft);text-align:center;}
   .toast.show{opacity:1;bottom:28px;}
+  .sup-table td{padding:6px 8px;}
+  .sup-input{width:100%;min-width:110px;padding:7px 9px;border:1px solid var(--border);border-radius:7px;background:var(--bg);color:var(--ink);font-size:.85rem;font-family:inherit;}
+  .sup-input[data-sup-key="pvpPoints"]{min-width:80px;font-family:var(--font-mono);}
+  .sup-input[type="date"]{min-width:140px;}
   .price-input{width:84px;padding:6px 8px;border:1px solid var(--border);border-radius:7px;background:var(--bg);color:var(--ink);font-size:.85rem;font-family:var(--font-mono);}
 </style>
 </head>
@@ -1060,12 +1064,11 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     {id:'dash', label:'Resumen'},
     {id:'entities', label:'Tiendas y almacenes'},
     {id:'sellers', label:'Vendedores'},
-    {id:'families', label:'Familias'},
+    {id:'suppliers', label:'Proveedores'},
   ];
   const ENTITY_TYPES = [
     {id:'stores', label:'Tiendas', title:'Tiendas', hint:'Puntos de venta donde trabajan tus vendedores.', cols:[{key:'name',label:'Nombre'},{key:'address',label:'Dirección'}]},
     {id:'warehouses', label:'Almacenes', title:'Almacenes', hint:'Los almacenes guardan el stock físico de cada artículo.', cols:[{key:'name',label:'Nombre'},{key:'location',label:'Ubicación'}]},
-    {id:'suppliers', label:'Proveedores', title:'Proveedores', hint:'Fabricantes y talleres que suministran artículos.', cols:[{key:'name',label:'Nombre'},{key:'contact',label:'Contacto'}]},
   ];
   function renderEntitiesConfig(){
     const type = state.entitiesType || 'stores';
@@ -1079,7 +1082,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
   }
   function renderConfigSection(){
     return `
-    <div class="section-head"><div><h2>Configuración</h2><p>Tiendas, almacenes, proveedores, vendedores y familias.</p></div></div>
+    <div class="section-head"><div><h2>Configuración</h2><p>Tiendas, almacenes, vendedores y proveedores.</p></div></div>
     <div class="config-tabs">
       ${CONFIG_TABS.map(t=>`<button class="${state.configTab===t.id?'active':''}" data-action="config-tab" data-tab="${t.id}" type="button">${t.label}</button>`).join('')}
     </div>
@@ -1090,11 +1093,52 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     switch(state.configTab){
       case 'account': return renderAccountSection();
       case 'dash': return renderDash();
-      case 'families': return renderFamiliesConfig();
+      case 'suppliers': return renderSuppliersConfig();
       case 'entities': return renderEntitiesConfig();
       case 'sellers': return renderSellersTable();
       default: return '';
     }
+  }
+  function renderSuppliersConfig(){
+    const rows = state.data.suppliers;
+    const cell = (r, key, type, ph) => `<input class="sup-input" type="${type}" ${type==='text'&&key==='pvpPoints'?'inputmode="decimal"':''} data-sup-id="${r.id}" data-sup-key="${key}" value="${esc(key==='pvpPoints' && r[key]!=null && r[key]!=='' ? String(r[key]).replace('.',',') : (r[key]||''))}" placeholder="${ph}">`;
+    return `
+    <div class="section-head"><div><p>Fabricantes que suministran artículos. Toca cualquier campo para cambiarlo; se guarda al salir del recuadro. Déjalo vacío para borrarlo.</p></div></div>
+    ${rows.length===0 ? `<div class="empty">Todavía no hay proveedores.</div>` : `
+    <div class="table-wrap"><table class="sup-table"><thead><tr><th>Nombre</th><th>Familia</th><th>Puntos PVP</th><th>Fecha actualización</th><th></th></tr></thead><tbody>
+      ${rows.map(r=>`<tr>
+        <td>${cell(r,'name','text','Nombre')}</td>
+        <td>${cell(r,'family','text','Familia')}</td>
+        <td>${cell(r,'pvpPoints','text','0,00')}</td>
+        <td>${cell(r,'updatedOn','date','')}</td>
+        <td><button class="btn btn-ghost btn-sm btn-danger" data-action="delete" data-entity="suppliers" data-id="${r.id}" type="button" title="Eliminar proveedor">${icon('trash')}</button></td>
+      </tr>`).join('')}
+    </tbody></table></div>`}
+    <div class="toolbar" style="margin-top:12px;">
+      <input type="text" id="quick-suppliers" placeholder="Nuevo proveedor…">
+      <button class="btn btn-accent" data-action="quick-add" data-entity="suppliers" type="button">${icon('plus')}</button>
+    </div>
+    `;
+  }
+  async function saveSupplierField(inp){
+    const id = inp.dataset.supId, key = inp.dataset.supKey;
+    let val = String(inp.value).trim();
+    if(key==='name' && !val){ showToast('El nombre no puede quedar vacío.'); const s0 = byId(state.data.suppliers, id); inp.value = s0 ? (s0.name||'') : ''; return; }
+    const patch = {};
+    if(key==='pvpPoints'){
+      if(val===''){ patch.pvpPoints = ''; }
+      else {
+        const n = Number(val.replace(',', '.'));
+        if(!(n>=0)){ showToast('Puntos PVP no válidos.'); return; }
+        patch.pvpPoints = n;
+        // Si cambian los puntos, la fecha de actualización pasa a hoy (se puede cambiar a mano).
+        patch.updatedOn = new Date().toLocaleDateString('sv-SE');
+      }
+    } else {
+      patch[key] = val;
+    }
+    const ok = await updateDoc('suppliers', id, patch);
+    if(ok) showToast(val==='' ? 'Borrado.' : 'Guardado.');
   }
   function renderAccountSection(){
     const hasPass = !!getSettings().adminPassword;
@@ -2045,6 +2089,10 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     });
     const restoreInput = document.getElementById('restore-file');
     if(restoreInput){ restoreInput.onchange = (e)=>{ const f=e.target.files[0]; if(f) restoreBackup(f); e.target.value=''; }; }
+    document.querySelectorAll('[data-sup-id]').forEach(inp=>{
+      inp.onkeydown = (e)=>{ if(e.key==='Enter') inp.blur(); };
+      inp.onchange = ()=>saveSupplierField(inp);
+    });
     document.querySelectorAll('[data-price-item]').forEach(inp=>{
       inp.onkeydown = (e)=>{ if(e.key==='Enter') inp.blur(); };
       inp.onchange = async ()=>{
