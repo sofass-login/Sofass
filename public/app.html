@@ -248,6 +248,19 @@
   .sup-table td{padding:6px 8px;vertical-align:top;}
   .main.main-wide{max-width:1500px;}
   .tab-badge{margin-left:6px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--danger);color:#fff;font-size:.68rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center;}
+  .notif-tabs{margin-bottom:14px;}
+  .notif-tabs .tab-badge{margin-left:6px;}
+  .notice-compose{display:flex;gap:8px;align-items:stretch;margin-bottom:12px;flex-wrap:wrap;}
+  .notice-compose textarea{flex:1;min-width:200px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);font-size:.88rem;font-family:inherit;resize:vertical;}
+  .notice-card{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--accent-3);border-radius:12px;padding:12px 14px;margin-bottom:10px;}
+  .notice-card.t-apartar{border-left-color:var(--accent);}
+  .notice-card.t-recepcion{border-left-color:var(--accent-2);}
+  .notice-card.s-hecho, .notice-card.s-anulado{opacity:.7;}
+  .notice-card .top{display:flex;justify-content:space-between;gap:10px;font-size:.92rem;}
+  .notice-card .date{font-family:var(--font-mono);font-size:.72rem;color:var(--ink-soft);white-space:nowrap;}
+  .notice-card .text{font-size:.86rem;margin-top:4px;white-space:pre-line;}
+  .notice-card .foot{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);font-size:.8rem;color:var(--ink-soft);}
+  .notice-card .foot .who{flex:1;}
   .notif-block{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--accent-3);border-radius:12px;padding:12px 14px;margin-bottom:12px;}
   .notif-block.danger{border-left-color:var(--danger);}
   .notif-block.warn{border-left-color:var(--accent);}
@@ -608,12 +621,12 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     cajaStoreId:null, cajaFrom:'', cajaTo:'', cajaSearch:'',
     ventasStoreId:null, ventasFrom:'', ventasTo:'', ventasSearch:'',
     modal:null, saleDraftItems:[], ventasView:'ventas', movActionsOpen:false, entitiesType:'stores',
-    data:{ stores:[], warehouses:[], sellers:[], suppliers:[], families:[], familyGroups:[], settings:[], items:[], movements:[], sales:[], cash:[] },
+    data:{ stores:[], warehouses:[], sellers:[], suppliers:[], families:[], familyGroups:[], settings:[], items:[], movements:[], sales:[], cash:[], notices:[] },
   };
 
   let db = null;
   let canWrite = null; // null = desconocido todavía, true/false = respuesta de la plataforma
-  const COLLECTIONS = ['stores','warehouses','sellers','suppliers','families','familyGroups','settings','items','movements','sales','cash'];
+  const COLLECTIONS = ['stores','warehouses','sellers','suppliers','families','familyGroups','settings','items','movements','sales','cash','notices'];
 
   function showToast(msg){
     const t = document.getElementById('toast');
@@ -773,6 +786,52 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       <div class="main${state.adminTab==='config' && state.configTab==='suppliers' ? ' main-wide' : ''}">${renderAdminMain()}</div>`;
   }
   /* ---- Notificaciones ---- */
+  const NOTICE_DONE_LABEL = {apartar:'Apartado', recepcion:'Revisado', exposicion:'Enviado', manual:'Hecho'};
+  async function addNotice(n){
+    return addDoc('notices', {status:'pendiente', ...n});
+  }
+  function noticeSections(){
+    return [...state.data.stores.map(st=>({key:st.id, label:st.name})), {key:'almacen', label:'Almacén'}];
+  }
+  const pendingNotices = key => state.data.notices.filter(n=>(n.targets||[]).includes(key) && n.status==='pendiente');
+  function renderNoticeList(key, opts){
+    opts = opts || {};
+    const filtro = state.noticeFilter || 'pendientes';
+    let list = state.data.notices.filter(n=>(n.targets||[]).includes(key));
+    if(filtro==='pendientes') list = list.filter(n=>n.status==='pendiente');
+    list.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+    // El vendedor escribe al Almacén (y el aviso también queda en su tienda); el administrador escribe al apartado abierto.
+    const sendTo = opts.seller ? `almacen,${key}` : key;
+    return `
+    <div class="notice-compose">
+      <textarea id="notice-text" rows="2" placeholder="Escribe un aviso para ${opts.seller?'el Almacén':esc(opts.label||'este apartado')}…"></textarea>
+      <button class="btn btn-accent" data-action="notice-send" data-target="${sendTo}" type="button">${icon('bell')} Enviar aviso</button>
+    </div>
+    <div class="subnav">
+      <button class="${filtro==='pendientes'?'active':''}" data-action="notice-filter" data-filter="pendientes" type="button">Pendientes (${pendingNotices(key).length})</button>
+      <button class="${filtro==='todos'?'active':''}" data-action="notice-filter" data-filter="todos" type="button">Todos</button>
+    </div>
+    ${list.length===0 ? `<div class="empty">${filtro==='pendientes'?'No hay avisos pendientes.':'Todavía no hay avisos.'}</div>` : list.map(n=>{
+      const label = NOTICE_DONE_LABEL[n.type] || 'Hecho';
+      const otros = (n.targets||[]).filter(t=>t!==key).map(t=>t==='almacen'?'Almacén':storeName(t));
+      return `<div class="notice-card t-${n.type} s-${n.status}">
+        <div class="top"><b>${esc(n.title||'Aviso')}</b><span class="date">${fmtDateTime(n.createdAt)}</span></div>
+        <div class="text">${esc(n.text||'')}</div>
+        <div class="foot">
+          <span class="who">${esc(n.actorName||'Administrador')}${otros.length?' · también en: '+esc(otros.join(', ')):''}</span>
+          ${n.status==='pendiente'
+            ? `<button class="btn btn-sm btn-teal" data-action="notice-done" data-id="${n.id}" type="button">✓ ${label}</button>`
+            : `<span class="status-pill ${n.status==='hecho'?'status-activo':'status-cancelado'}">${n.status==='hecho'?(label.toLowerCase()+(n.doneBy?' · '+esc(n.doneBy):'')+(n.doneAt?' · '+fmtDateTime(n.doneAt):'')):'anulado'}</span>`}
+          ${n.type==='manual' && !opts.seller ? `<button class="cancel-link" data-action="notice-delete" data-id="${n.id}" type="button">eliminar</button>` : ''}
+        </div>
+      </div>`;
+    }).join('')}
+    `;
+  }
+  function currentActorName(){
+    const seller = state.sellerId ? byId(state.data.sellers, state.sellerId) : null;
+    return seller ? seller.name : 'Administrador';
+  }
   const NOTIF_KEY = 'sofass.notif.seenAt';
   function notifSeenAt(){ try{ return Number(localStorage.getItem(NOTIF_KEY))||0; }catch(e){ return 0; } }
   function setNotifSeen(ts){ try{ localStorage.setItem(NOTIF_KEY, String(ts)); }catch(e){} }
@@ -791,12 +850,25 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     return state.data.movements.filter(m=>(m.createdAt||0)>=desde).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
   }
   function notificationCount(){
-    const seen = notifSeenAt();
-    const nuevas = state.data.movements.filter(m=>(m.createdAt||0)>seen).length;
+    const pendientes = state.data.notices.filter(n=>n.status==='pendiente').length;
     const {agotados, bajos} = stockAlerts();
-    return nuevas + agotados.length + bajos.length;
+    return pendientes + agotados.length + bajos.length;
   }
   function renderNotificacionesSection(){
+    const sec = state.notifSection || 'general';
+    const secciones = noticeSections();
+    const nav = `<div class="config-tabs notif-tabs">
+      <button class="${sec==='general'?'active':''}" data-action="notif-section" data-sec="general" type="button">General</button>
+      ${secciones.map(x=>{ const n = pendingNotices(x.key).length; return `<button class="${sec===x.key?'active':''}" data-action="notif-section" data-sec="${x.key}" type="button">${esc(x.label)}${n?`<span class="tab-badge">${n}</span>`:''}</button>`; }).join('')}
+    </div>`;
+    if(sec!=='general'){
+      const actual = secciones.find(x=>x.key===sec) || {label:'—'};
+      return `<div class="section-head"><div><h2>Notificaciones · ${esc(actual.label)}</h2><p>${sec==='almacen'?'Avisos operativos del almacén: mercancía recibida y mercancía que hay que apartar o preparar.':'Avisos de esta tienda: lo que ha vendido, reservado o pedido para exposición y si el almacén ya lo ha apartado.'}</p></div></div>
+        ${nav}${renderNoticeList(sec, {label:actual.label})}`;
+    }
+    return nav + renderNotificacionesGeneral();
+  }
+  function renderNotificacionesGeneral(){
     const {agotados, bajos, sinCoste} = stockAlerts();
     const prevSeen = state.notifPrevSeen!=null ? state.notifPrevSeen : notifSeenAt();
     const actividad = recentActivity();
@@ -1506,9 +1578,13 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       return topbar('') + renderSellerPicker();
     }
     const who = `<span class="who">${icon('seller')}<b>${esc(seller.name)}</b>${store?` · ${esc(store.name)}`:''}</span>`;
-    const tabs = [['catalog','Catálogo','item'],['mine','Mis pedidos','orders']];
+    const nAvisos = seller.storeId ? pendingNotices(seller.storeId).length : 0;
+    const tabs = [['catalog','Catálogo','item'],['mine','Mis pedidos','orders'],['avisos','Avisos'+(nAvisos?` <span class="tab-badge">${nAvisos}</span>`:''),'bell']];
     let body;
     if(state.sellerTab==='mine') body = renderMineOrders(seller);
+    else if(state.sellerTab==='avisos') body = seller.storeId
+      ? `<div class="section-head"><div><h2>Avisos · ${esc(storeName(seller.storeId))}</h2><p>Lo que has vendido, reservado o pedido para exposición y si el almacén ya lo ha apartado.</p></div></div>${renderNoticeList(seller.storeId, {seller:true, label:'tu tienda'})}`
+      : `<div class="empty">No tienes tienda asignada. Pide al administrador que te asigne una.</div>`;
     else body = renderStockSection('seller');
     return topbar(who) + `
       <div class="maintabs">${tabs.map(([id,label,ic])=>`<button class="${state.sellerTab===id?'active':''}" data-action="seller-tab" data-tab="${id}" type="button">${icon(ic)}${label}</button>`).join('')}</div>
@@ -1719,6 +1795,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       if(!ok) return;
       const movId = await addDoc('movements', {type:'entrada', itemId:item.id, itemName:item.name, sku:item.sku||'', qty, warehouseId, warehouseName:warehouseName(warehouseId), unitPrice, total:unitPrice*qty, actorName, status:'activo'});
       if(!movId) return;
+      await addNotice({type:'recepcion', targets:['almacen'], title:'Mercancía recibida', text:`${item.name} x${qty} · entra en ${warehouseName(warehouseId)}`, movementId:movId, itemId:item.id, warehouseId, actorName});
       showToast('Entrada registrada.');
     } else if(m.type==='reserva'){
       const clientName = (document.querySelector('[data-field="clientName"]')||{}).value || '';
@@ -1727,6 +1804,8 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       if(!ok) return;
       const movId = await addDoc('movements', {type:'reserva', itemId:item.id, itemName:item.name, sku:item.sku||'', qty, warehouseId, warehouseName:warehouseName(warehouseId), clientName, pedidoId:nextPedido(), sellerId:seller?seller.id:null, storeId:storeId||'', storeName:storeName(storeId), actorName, status:'activo'});
       if(!movId) return;
+      { const mv = byId(state.data.movements, movId) || {};
+        await addNotice({type:'apartar', targets:['almacen', storeId].filter(Boolean), title:'Apartar mercancía reservada', text:`${item.name} x${qty} · sacar de ${warehouseName(warehouseId)}${mv.pedidoId?' · Pedido '+mv.pedidoId:''}${clientName?' · Cliente: '+clientName:''}${storeId?' · Tienda: '+storeName(storeId):''}`, movementId:movId, itemId:item.id, warehouseId, storeId:storeId||'', actorName}); }
       showToast('Reserva enviada.');
     } else if(m.type==='vendido'){
       const clientName = (document.querySelector('[data-field="clientName"]')||{}).value || '';
@@ -1736,6 +1815,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       if(!ok) return;
       const movId = await addDoc('movements', {type:'vendido', itemId:item.id, itemName:item.name, sku:item.sku||'', qty, warehouseId, warehouseName:warehouseName(warehouseId), clientName, sellerId:seller?seller.id:null, storeId:storeId||'', storeName:storeId?storeName(storeId):'', actorName, status:'activo'});
       if(!movId) return;
+      await addNotice({type:'apartar', targets:['almacen', storeId].filter(Boolean), title:'Apartar mercancía vendida', text:`${item.name} x${qty} · sacar de ${warehouseName(warehouseId)}${clientName?' · '+clientName:''}${storeId?' · Tienda: '+storeName(storeId):''}`, movementId:movId, itemId:item.id, warehouseId, storeId:storeId||'', actorName});
       showToast('Marcado como vendido · ya no está disponible.');
     } else {
       newStock[warehouseId] = Math.max(0,(Number(newStock[warehouseId])||0) - qty);
@@ -1743,6 +1823,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       if(!ok) return;
       const movId = await addDoc('movements', {type:'exposicion', itemId:item.id, itemName:item.name, sku:item.sku||'', qty, warehouseId, warehouseName:warehouseName(warehouseId), sellerId:seller?seller.id:null, storeId:storeId||'', storeName:storeName(storeId), actorName, status:'activo'});
       if(!movId) return;
+      await addNotice({type:'exposicion', targets:['almacen', storeId].filter(Boolean), title:'Preparar para exposición', text:`${item.name} x${qty} · sacar de ${warehouseName(warehouseId)}${storeId?' · para '+storeName(storeId):''}`, movementId:movId, itemId:item.id, warehouseId, storeId:storeId||'', actorName});
       showToast('Exposición registrada · se ha descontado del almacén.');
     }
     state.modal = null; render();
@@ -1761,6 +1842,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       await updateDoc('items', item.id, {stock:newStock});
     }
     await updateDoc('movements', id, {status:'cancelado'});
+    for(const n of state.data.notices.filter(n=>n.movementId===id && n.status==='pendiente')){ await updateDoc('notices', n.id, {status:'anulado'}); }
     showToast(m.type==='exposicion' ? 'Exposición cancelada.' : m.type==='vendido' ? 'Venta anulada · vuelve a estar disponible.' : 'Reserva cancelada.');
   }
 
@@ -2205,6 +2287,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
     if(lines.length===0){ showToast('Sube el albarán o escribe al menos una línea.'); return; }
     let created=0, updated=0;
+    const recibido = [];
     for(const line of lines){
       const parts = line.split(';').map(p=>p.trim());
       const sku = parts[0]||''; const name = parts[1]||sku||'Artículo sin nombre';
@@ -2234,7 +2317,12 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
         itemId = newId; unitPrice = price;
         created++;
       }
+      recibido.push(`${name} x${qty}`);
       await addDoc('movements', {type:'entrada', itemId, itemName:name, sku, qty, warehouseId:whId, warehouseName:warehouseName(whId), unitPrice, total:unitPrice*qty, actorName:'Administrador', status:'activo'});
+    }
+    if(recibido.length){
+      const uds = recibido.reduce((a,t)=>a+Number(t.split(' x').pop()||0),0);
+      await addNotice({type:'recepcion', targets:['almacen'], title:`Albarán recibido · ${supplierName(supplierId)}`, text:`${recibido.length} línea(s), ${uds} uds. en ${warehouseName(whId)}:\n${recibido.join('\n')}`, warehouseId:whId, actorName:'Administrador'});
     }
     showToast(`Importado: ${created} artículo(s) nuevo(s), ${updated} con stock sumado.`);
     state.modal = null; render();
@@ -2363,6 +2451,17 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       case 'entrada-destino': state.modal.destino = el.dataset.destino; render(); break;
       case 'quick-add': quickAdd(el.dataset.entity); render(); break;
       case 'supplier-search-clear': state.supplierSearch = ''; render(); break;
+      case 'notif-section': state.notifSection = el.dataset.sec; render(); break;
+      case 'notice-filter': state.noticeFilter = el.dataset.filter; render(); break;
+      case 'notice-send': {
+        const ta = document.getElementById('notice-text');
+        const text = ta ? ta.value.trim() : '';
+        if(!text){ showToast('Escribe el aviso.'); break; }
+        addNotice({type:'manual', targets:el.dataset.target.split(','), title:'Aviso de '+currentActorName(), text, actorName:currentActorName()}).then(id=>{ if(id) showToast('Aviso enviado.'); });
+        break;
+      }
+      case 'notice-done': updateDoc('notices', el.dataset.id, {status:'hecho', doneAt:Date.now(), doneBy:currentActorName()}).then(ok=>{ if(ok) showToast('Hecho.'); }); break;
+      case 'notice-delete': if(window.confirm('¿Eliminar este aviso?')) deleteDocById('notices', el.dataset.id).then(ok=>{ if(ok) showToast('Aviso eliminado.'); }); break;
       case 'notif-open-item': state.adminTab = 'almacen'; state.stockView = 'product'; state.adminItemSearch = el.dataset.q || ''; state.familyFilter=''; state.supplierFilter=''; render(); break;
       case 'pvp-add': {
         const sup = byId(state.data.suppliers, el.dataset.id);
