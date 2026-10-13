@@ -247,6 +247,23 @@
   .toast.show{opacity:1;bottom:28px;}
   .sup-table td{padding:6px 8px;vertical-align:top;}
   .main.main-wide{max-width:1500px;}
+  .tab-badge{margin-left:6px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--danger);color:#fff;font-size:.68rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center;}
+  .notif-block{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--accent-3);border-radius:12px;padding:12px 14px;margin-bottom:12px;}
+  .notif-block.danger{border-left-color:var(--danger);}
+  .notif-block.warn{border-left-color:var(--accent);}
+  .notif-head{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+  .notif-head h3{margin:0;font-family:var(--font-display);font-size:1.02rem;font-weight:600;}
+  .notif-item{display:flex;justify-content:space-between;gap:10px;width:100%;text-align:left;background:none;border:none;border-top:1px dashed var(--border);padding:8px 0;color:var(--ink);font-size:.86rem;}
+  .notif-item:hover b{text-decoration:underline;}
+  .notif-sku{font-family:var(--font-mono);font-size:.7rem;color:var(--accent-2);}
+  .notif-extra{color:var(--ink-soft);white-space:nowrap;font-size:.8rem;}
+  .notif-act{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-bottom:8px;}
+  .notif-act.is-new{border-color:var(--accent-2);box-shadow:inset 3px 0 0 var(--accent-2);}
+  .notif-act.is-cancel{opacity:.65;}
+  .notif-act .top{display:flex;justify-content:space-between;gap:10px;font-size:.88rem;}
+  .notif-act .qty{color:var(--ink-soft);}
+  .notif-act .date{font-family:var(--font-mono);font-size:.72rem;color:var(--ink-soft);white-space:nowrap;}
+  .notif-act .sub{font-size:.8rem;color:var(--ink-soft);margin-top:3px;}
   .sup-search input{flex:1;}
   .sup-count{margin:-6px 0 10px;color:var(--ink-soft);font-size:.82rem;}
   /* Ordenador: la tabla cabe entera sin desplazar. */
@@ -568,6 +585,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     edit: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>`,
     trash: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 6h18"/><path d="M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>`,
     cash: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9v.01M18 15v.01"/></svg>`,
+    bell: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 16V11a6 6 0 0112 0v5l1.5 2h-15L6 16z"/><path d="M10 20a2 2 0 004 0"/></svg>`,
     sales: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 3v16a2 2 0 002 2h16"/><path d="M7 15l4-4 3 3 5-6"/></svg>`,
     moves: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 3v3h6V3M9 11h6M9 15h4"/></svg>`,
     config: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>`,
@@ -745,13 +763,70 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     {id:'almacen', label:'Almacén', icon:'warehouse'},
     {id:'valoracion', label:'Valoración', icon:'dash'},
     {id:'config', label:'Configuración', icon:'config'},
+    {id:'notificaciones', label:'Notificaciones', icon:'bell'},
   ];
   function renderAdminShell(){
     return topbar(`<span class="who">${icon('admin')}<b>Administrador</b></span>`) + `
       <div class="maintabs">
-        ${ADMIN_TABS.map(t=>`<button class="${state.adminTab===t.id?'active':''}" data-action="admin-tab" data-tab="${t.id}" type="button">${icon(t.icon)}${t.label}</button>`).join('')}
+        ${ADMIN_TABS.map(t=>{ const n = t.id==='notificaciones' ? notificationCount() : 0; return `<button class="${state.adminTab===t.id?'active':''}" data-action="admin-tab" data-tab="${t.id}" type="button">${icon(t.icon)}${t.label}${n>0?`<span class="tab-badge">${n>99?'99+':n}</span>`:''}</button>`; }).join('')}
       </div>
       <div class="main${state.adminTab==='config' && state.configTab==='suppliers' ? ' main-wide' : ''}">${renderAdminMain()}</div>`;
+  }
+  /* ---- Notificaciones ---- */
+  const NOTIF_KEY = 'sofass.notif.seenAt';
+  function notifSeenAt(){ try{ return Number(localStorage.getItem(NOTIF_KEY))||0; }catch(e){ return 0; } }
+  function setNotifSeen(ts){ try{ localStorage.setItem(NOTIF_KEY, String(ts)); }catch(e){} }
+  function stockAlerts(){
+    const agotados = [], bajos = [], sinCoste = [];
+    state.data.items.forEach(i=>{
+      const t = totalStock(i), limite = Number(i.lowStockAt||3);
+      if(t<=0) agotados.push(i);
+      else if(t<=limite) bajos.push(i);
+      if(t>0 && !(Number(i.price)>0)) sinCoste.push(i);
+    });
+    return {agotados, bajos, sinCoste};
+  }
+  function recentActivity(){
+    const desde = Date.now() - 14*24*3600*1000;
+    return state.data.movements.filter(m=>(m.createdAt||0)>=desde).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  }
+  function notificationCount(){
+    const seen = notifSeenAt();
+    const nuevas = state.data.movements.filter(m=>(m.createdAt||0)>seen).length;
+    const {agotados, bajos} = stockAlerts();
+    return nuevas + agotados.length + bajos.length;
+  }
+  function renderNotificacionesSection(){
+    const {agotados, bajos, sinCoste} = stockAlerts();
+    const prevSeen = state.notifPrevSeen!=null ? state.notifPrevSeen : notifSeenAt();
+    const actividad = recentActivity();
+    const tipo = {entrada:'Entrada', reserva:'Reserva', exposicion:'Exposición', vendido:'Vendido'};
+    const itemLink = (i, extra) => `<button class="notif-item" data-action="notif-open-item" data-q="${esc(i.sku||i.name||'')}" type="button">
+        <span><b>${esc(familyName(i.familyId))} · ${esc(i.name)}</b>${i.sku?` <span class="notif-sku">${esc(i.sku)}</span>`:''}</span>
+        <span class="notif-extra">${extra}</span></button>`;
+    const block = (titulo, cls, lista, extra) => lista.length ? `
+      <div class="notif-block ${cls}">
+        <div class="notif-head"><h3>${titulo}</h3><span class="tag ${cls==='danger'?'low':''}">${lista.length}</span></div>
+        ${lista.slice(0,50).map(i=>itemLink(i, extra(i))).join('')}
+      </div>` : '';
+    const nada = !agotados.length && !bajos.length && !sinCoste.length;
+    return `
+    <div class="section-head"><div><h2>Notificaciones</h2><p>Avisos de stock y lo que ha pasado en los últimos 14 días.</p></div></div>
+    ${nada ? `<div class="empty">Todo en orden: no hay artículos agotados, con poco stock ni sin coste.</div>` : ''}
+    ${block('Sin stock', 'danger', agotados, ()=> '0 disponibles')}
+    ${block('Stock bajo', 'warn', bajos, i=> `${totalStock(i)} disponibles`)}
+    ${block('Sin coste', 'info', sinCoste, i=> `${totalStock(i)} uds. · falta el €/ud`)}
+    <div class="eyebrow" style="margin-top:18px;">Actividad reciente</div>
+    ${actividad.length===0 ? `<div class="empty">No hay movimientos en los últimos 14 días.</div>` : actividad.slice(0,60).map(m=>{
+      const nuevo = (m.createdAt||0) > prevSeen;
+      const donde = m.storeName || m.warehouseName || '';
+      const quien = m.actorName || 'Administrador';
+      return `<div class="notif-act${nuevo?' is-new':''}${m.status==='cancelado'?' is-cancel':''}">
+        <div class="top"><span><b>${tipo[m.type]||m.type}</b> · ${esc(m.itemName||'')} <span class="qty">x${m.qty}</span>${nuevo?' <span class="tag ok">nuevo</span>':''}${m.status==='cancelado'?' <span class="status-pill status-cancelado">cancelado</span>':''}</span><span class="date">${fmtDateTime(m.createdAt)}</span></div>
+        <div class="sub">${esc(quien)}${donde?' · '+esc(donde):''}${m.clientName?' · '+esc(m.clientName):''}</div>
+      </div>`;
+    }).join('')}
+    `;
   }
   function renderAdminMain(){
     switch(state.adminTab){
@@ -759,6 +834,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       case 'ventas': return renderVentasShell();
       case 'valoracion': return renderValoracionSection();
       case 'config': return renderConfigSection();
+      case 'notificaciones': return renderNotificacionesSection();
       default: return '';
     }
   }
@@ -2188,6 +2264,8 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     });
     const restoreInput = document.getElementById('restore-file');
     if(restoreInput){ restoreInput.onchange = (e)=>{ const f=e.target.files[0]; if(f) restoreBackup(f); e.target.value=''; }; }
+    const activeTab = document.querySelector('.maintabs button.active');
+    if(activeTab && activeTab.scrollIntoView){ try{ activeTab.scrollIntoView({block:'nearest', inline:'nearest'}); }catch(e){} }
     document.querySelectorAll('[data-pvp-sup]').forEach(inp=>{
       inp.onkeydown = (e)=>{ if(e.key==='Enter'){ e.preventDefault(); inp.blur(); } };
       inp.onchange = ()=>onPvpChange(inp);
@@ -2250,7 +2328,9 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
         break;
       case 'enter-seller': state.role='seller'; state.sellerId=null; render(); break;
       case 'exit': state.role=null; state.sellerId=null; state.modal=null; render(); break;
-      case 'admin-tab': state.adminTab = el.dataset.tab; render(); break;
+      case 'admin-tab':
+        if(el.dataset.tab==='notificaciones' && state.adminTab!=='notificaciones'){ state.notifPrevSeen = notifSeenAt(); setNotifSeen(Date.now()); }
+        state.adminTab = el.dataset.tab; render(); break;
       case 'config-tab': state.configTab = el.dataset.tab; render(); break;
       case 'seller-tab': state.sellerTab = el.dataset.tab; render(); break;
       case 'stock-view': state.stockView = el.dataset.view; render(); break;
@@ -2283,6 +2363,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       case 'entrada-destino': state.modal.destino = el.dataset.destino; render(); break;
       case 'quick-add': quickAdd(el.dataset.entity); render(); break;
       case 'supplier-search-clear': state.supplierSearch = ''; render(); break;
+      case 'notif-open-item': state.adminTab = 'almacen'; state.stockView = 'product'; state.adminItemSearch = el.dataset.q || ''; state.familyFilter=''; state.supplierFilter=''; render(); break;
       case 'pvp-add': {
         const sup = byId(state.data.suppliers, el.dataset.id);
         if(sup) saveSupplierPvp(sup.id, [...supplierPvpList(sup), {label:'', value:''}], false);
