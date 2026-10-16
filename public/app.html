@@ -901,7 +901,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       const quien = m.actorName || 'Administrador';
       return `<div class="notif-act${nuevo?' is-new':''}${m.status==='cancelado'?' is-cancel':''}">
         <div class="top"><span><b>${tipo[m.type]||m.type}</b> · ${esc(m.itemName||'')} <span class="qty">x${m.qty}</span>${nuevo?' <span class="tag ok">nuevo</span>':''}${m.status==='cancelado'?' <span class="status-pill status-cancelado">cancelado</span>':''}</span><span class="date">${fmtDateTime(m.createdAt)}</span></div>
-        <div class="sub">${esc(quien)}${donde?' · '+esc(donde):''}${m.clientName?' · '+esc(m.clientName):''}</div>
+        <div class="sub">${esc(quien)}${donde?' · '+esc(donde):''}${m.clientName?' · '+esc(m.clientName):''}${m.clientRef?' · Ref. cliente: '+esc(m.clientRef):''}</div>
       </div>`;
     }).join('')}
     `;
@@ -1155,11 +1155,11 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     } else if(m.type==='entrada'){
       sub = `Entrada · ${esc(m.actorName||'Administrador')} · ${esc(m.warehouseName||'')} · REF:${esc(m.sku||'—')}<br><span class="money">${money(m.unitPrice)}/ud · Total ${money(m.total)}</span>`;
     } else if(m.type==='reserva'){
-      sub = `Pedido ${esc(m.pedidoId||'')} · Cliente: ${esc(m.clientName||'—')} · ${esc(m.actorName||'')} · ${esc(m.storeName||m.warehouseName||'')}`;
+      sub = `Pedido ${esc(m.pedidoId||'')} · Cliente: ${esc(m.clientName||'—')}${m.clientRef?` · Ref. cliente: ${esc(m.clientRef)}`:''} · ${esc(m.actorName||'')} · ${esc(m.storeName||m.warehouseName||'')}`;
     } else if(m.type==='ajuste'){
       sub = `Unidades quitadas · ${esc(m.actorName||'Administrador')} · ${esc(m.warehouseName||'')} · REF:${esc(m.sku||'—')}`;
     } else if(m.type==='vendido'){
-      sub = `Vendido · ${esc(m.actorName||'')} · ${esc(m.storeName||m.warehouseName||'')}${m.clientName?` · ${esc(m.clientName)}`:''} · Salió de ${esc(m.warehouseName||'—')}`;
+      sub = `Vendido · ${esc(m.actorName||'')} · ${esc(m.storeName||m.warehouseName||'')}${m.clientName?` · ${esc(m.clientName)}`:''}${m.clientRef?` · Ref. cliente: ${esc(m.clientRef)}`:''} · Salió de ${esc(m.warehouseName||'—')}`;
     } else {
       sub = `Exposición · ${esc(m.actorName||'')} · ${esc(m.storeName||m.warehouseName||'')}`;
     }
@@ -1805,6 +1805,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       <div class="field"><label>Cantidad</label><input type="number" min="1" step="1" data-field="qty" value="1"></div>
       ${m.type==='reserva' ? `<div class="field"><label>Cliente</label><input type="text" data-field="clientName" placeholder="Nombre del cliente"></div>` : ''}
       ${m.type==='vendido' ? `<div class="field"><label>Cliente o nota (opcional)</label><input type="text" data-field="clientName" placeholder="Ej. nombre del cliente"></div>` : ''}
+      ${(m.type==='vendido'||m.type==='reserva') ? `<div class="field"><label>Ref. cliente (opcional)</label><input type="text" data-field="clientRef" placeholder="Ej. INC-VEN-4264 · nº de pedido del cliente"></div>` : ''}
       ${(m.type==='reserva'||m.type==='exposicion'||m.type==='vendido') ? `<div class="field"><label>Tienda</label><select data-field="storeId"><option value="">— seleccionar —</option>${state.data.stores.map(s=>`<option value="${s.id}" ${state.sellerId && byId(state.data.sellers,state.sellerId) && byId(state.data.sellers,state.sellerId).storeId===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select></div>` : ''}
     `;
     appendModal(titleMap[m.type], body, 'save-movement');
@@ -1838,6 +1839,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     const warehouseId = (document.querySelector('[data-field="warehouseId"]')||{}).value;
     if(!warehouseId){ showToast('Elige un almacén.'); return; }
     const qty = Math.max(1, Number((document.querySelector('[data-field="qty"]')||{}).value)||1);
+    const clientRef = ((document.querySelector('[data-field="clientRef"]')||{}).value || '').trim();
     const vendW = vendidoWarehouse();
     if(vendW && warehouseId===vendW.id){ showToast('Las unidades del almacén "Vendido" ya no están disponibles.'); return; }
     const available = stockIn(item, warehouseId);
@@ -1861,10 +1863,10 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       newStock[warehouseId] = Math.max(0,(Number(newStock[warehouseId])||0) - qty);
       const ok = await updateDoc('items', item.id, {stock:newStock});
       if(!ok) return;
-      const movId = await addDoc('movements', {type:'reserva', itemId:item.id, itemName:item.name, sku:item.sku||'', qty, warehouseId, warehouseName:warehouseName(warehouseId), clientName, pedidoId:nextPedido(), sellerId:seller?seller.id:null, storeId:storeId||'', storeName:storeName(storeId), actorName, status:'activo'});
+      const movId = await addDoc('movements', {type:'reserva', clientRef, itemId:item.id, itemName:item.name, sku:item.sku||'', qty, warehouseId, warehouseName:warehouseName(warehouseId), clientName, pedidoId:nextPedido(), sellerId:seller?seller.id:null, storeId:storeId||'', storeName:storeName(storeId), actorName, status:'activo'});
       if(!movId) return;
       { const mv = byId(state.data.movements, movId) || {};
-        await addNotice({type:'apartar', targets:['almacen', storeId].filter(Boolean), title:'Apartar mercancía reservada', text:`${item.name} x${qty} · sacar de ${warehouseName(warehouseId)}${mv.pedidoId?' · Pedido '+mv.pedidoId:''}${clientName?' · Cliente: '+clientName:''}${storeId?' · Tienda: '+storeName(storeId):''}`, movementId:movId, itemId:item.id, warehouseId, storeId:storeId||'', actorName}); }
+        await addNotice({type:'apartar', targets:['almacen', storeId].filter(Boolean), title:'Apartar mercancía reservada', text:`${item.name} x${qty} · sacar de ${warehouseName(warehouseId)}${mv.pedidoId?' · Pedido '+mv.pedidoId:''}${clientName?' · Cliente: '+clientName:''}${clientRef?' · Ref. cliente: '+clientRef:''}${storeId?' · Tienda: '+storeName(storeId):''}`, movementId:movId, itemId:item.id, warehouseId, storeId:storeId||'', actorName}); }
       showToast('Reserva enviada.');
     } else if(m.type==='vendido'){
       const clientName = (document.querySelector('[data-field="clientName"]')||{}).value || '';
@@ -1872,9 +1874,9 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       if(vendW) newStock[vendW.id] = (Number(newStock[vendW.id])||0) + qty;
       const ok = await updateDoc('items', item.id, {stock:newStock});
       if(!ok) return;
-      const movId = await addDoc('movements', {type:'vendido', itemId:item.id, itemName:item.name, sku:item.sku||'', qty, warehouseId, warehouseName:warehouseName(warehouseId), clientName, sellerId:seller?seller.id:null, storeId:storeId||'', storeName:storeId?storeName(storeId):'', actorName, status:'activo'});
+      const movId = await addDoc('movements', {type:'vendido', clientRef, itemId:item.id, itemName:item.name, sku:item.sku||'', qty, warehouseId, warehouseName:warehouseName(warehouseId), clientName, sellerId:seller?seller.id:null, storeId:storeId||'', storeName:storeId?storeName(storeId):'', actorName, status:'activo'});
       if(!movId) return;
-      await addNotice({type:'apartar', targets:['almacen', storeId].filter(Boolean), title:'Apartar mercancía vendida', text:`${item.name} x${qty} · sacar de ${warehouseName(warehouseId)}${clientName?' · '+clientName:''}${storeId?' · Tienda: '+storeName(storeId):''}`, movementId:movId, itemId:item.id, warehouseId, storeId:storeId||'', actorName});
+      await addNotice({type:'apartar', targets:['almacen', storeId].filter(Boolean), title:'Apartar mercancía vendida', text:`${item.name} x${qty} · sacar de ${warehouseName(warehouseId)}${clientName?' · '+clientName:''}${clientRef?' · Ref. cliente: '+clientRef:''}${storeId?' · Tienda: '+storeName(storeId):''}`, movementId:movId, itemId:item.id, warehouseId, storeId:storeId||'', actorName});
       showToast('Marcado como vendido · ya no está disponible.');
     } else {
       newStock[warehouseId] = Math.max(0,(Number(newStock[warehouseId])||0) - qty);
