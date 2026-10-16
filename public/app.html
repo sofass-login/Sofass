@@ -248,6 +248,7 @@
   .sup-table td{padding:6px 8px;vertical-align:top;}
   .main.main-wide{max-width:1500px;}
   .tab-badge{margin-left:6px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--danger);color:#fff;font-size:.68rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center;}
+  .item-card .client-ref{color:var(--accent);}
   .recv-block{border:1px dashed var(--border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--surface-2);}
   .recv-head{display:flex;align-items:center;gap:6px;font-weight:700;font-size:.86rem;}
   .recv-hint{margin:0;font-size:.78rem;color:var(--ink-soft);}
@@ -921,7 +922,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
   function filteredItems(){
     let rows = state.data.items.slice();
     const q = (state.stockContext==='seller' ? state.search : state.adminItemSearch).trim().toLowerCase();
-    if(q) rows = rows.filter(r=>(r.name||'').toLowerCase().includes(q) || (r.sku||'').toLowerCase().includes(q) || supplierName(r.supplierId).toLowerCase().includes(q) || (r.measure||'').toLowerCase().includes(q));
+    if(q) rows = rows.filter(r=>(r.name||'').toLowerCase().includes(q) || (r.sku||'').toLowerCase().includes(q) || (r.clientRef||'').toLowerCase().includes(q) || supplierName(r.supplierId).toLowerCase().includes(q) || (r.measure||'').toLowerCase().includes(q));
     if(state.familyFilter) rows = rows.filter(r=>r.familyId===state.familyFilter);
     if(state.supplierFilter) rows = rows.filter(r=>r.supplierId===state.supplierFilter);
     if(state.warehouseFilter) rows = rows.filter(r=>stockIn(r,state.warehouseFilter) > 0);
@@ -979,6 +980,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
           <div>
             <h4>${esc(familyName(r.familyId))} · ${esc(r.name)}<span class="sku">${esc(r.sku||'')}</span></h4>
             <div class="meta">${esc(supplierName(r.supplierId))}${r.measure?` · ${esc(r.measure)}`:''}${r.material?` · ${esc(r.material)}`:''}</div>
+            ${r.clientRef?`<div class="meta client-ref">Ref. cliente: <b>${esc(r.clientRef)}</b></div>`:''}
           </div>
           <div class="total"><div class="n">${total}</div><div class="l">disponibles</div></div>
         </div>
@@ -1623,6 +1625,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     items: [
       {key:'name', label:'Modelo', type:'text', required:true},
       {key:'sku', label:'REF PRODUCTO', type:'text'},
+      {key:'clientRef', label:'Ref. cliente (si está vendida)', type:'text'},
       {key:'familyId', label:'Familia', type:'select', source:'families'},
       {key:'supplierId', label:'Proveedor', type:'select', source:'suppliers'},
       {key:'measure', label:'Medida', type:'text'},
@@ -1733,7 +1736,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       const unitPrice = Number(data.price)||0;
       if(recv.op==='add'){
         const movId = await addDoc('movements', {type:'entrada', itemId, itemName:data.name, sku:data.sku||'', qty:recv.qty, warehouseId:recv.wh, warehouseName:warehouseName(recv.wh), unitPrice, total:unitPrice*recv.qty, actorName, status:'activo'});
-        await addNotice({type:'recepcion', targets:['almacen'], title:'Mercancía recibida', text:`${data.name} x${recv.qty} · entra en ${warehouseName(recv.wh)}`, movementId:movId, itemId, warehouseId:recv.wh, actorName});
+        await addNotice({type:'recepcion', targets:['almacen'], title:'Mercancía recibida', text:`${data.name} x${recv.qty} · entra en ${warehouseName(recv.wh)}${data.clientRef?' · Ref. cliente: '+data.clientRef:''}`, movementId:movId, itemId, warehouseId:recv.wh, actorName});
       } else {
         await addDoc('movements', {type:'ajuste', itemId, itemName:data.name, sku:data.sku||'', qty:recv.qty, warehouseId:recv.wh, warehouseName:warehouseName(recv.wh), actorName, status:'activo'});
       }
