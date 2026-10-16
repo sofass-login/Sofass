@@ -248,6 +248,12 @@
   .sup-table td{padding:6px 8px;vertical-align:top;}
   .main.main-wide{max-width:1500px;}
   .tab-badge{margin-left:6px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--danger);color:#fff;font-size:.68rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center;}
+  .recv-block{border:1px dashed var(--border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--surface-2);}
+  .recv-head{display:flex;align-items:center;gap:6px;font-weight:700;font-size:.86rem;}
+  .recv-hint{margin:0;font-size:.78rem;color:var(--ink-soft);}
+  .recv-row{display:flex;gap:8px;align-items:center;}
+  .recv-row input{flex:1;min-width:0;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--ink);font-size:.9rem;}
+  .recv-row select{padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--ink);font-size:.88rem;}
   .notif-tabs{margin-bottom:14px;}
   .notif-tabs .tab-badge{margin-left:6px;}
   .notice-compose{display:flex;gap:8px;align-items:stretch;margin-bottom:12px;flex-wrap:wrap;}
@@ -872,7 +878,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     const {agotados, bajos, sinCoste} = stockAlerts();
     const prevSeen = state.notifPrevSeen!=null ? state.notifPrevSeen : notifSeenAt();
     const actividad = recentActivity();
-    const tipo = {entrada:'Entrada', reserva:'Reserva', exposicion:'Exposición', vendido:'Vendido'};
+    const tipo = {entrada:'Entrada', reserva:'Reserva', exposicion:'Exposición', vendido:'Vendido', ajuste:'Unidades quitadas'};
     const itemLink = (i, extra) => `<button class="notif-item" data-action="notif-open-item" data-q="${esc(i.sku||i.name||'')}" type="button">
         <span><b>${esc(familyName(i.familyId))} · ${esc(i.name)}</b>${i.sku?` <span class="notif-sku">${esc(i.sku)}</span>`:''}</span>
         <span class="notif-extra">${extra}</span></button>`;
@@ -949,7 +955,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       ${isAdmin ? `<button class="${view==='movimientos'?'active':''}" data-action="stock-view" data-view="movimientos" type="button">Movimientos</button>` : ''}
     </div>
     <div class="toolbar">
-      <input type="text" id="${isAdmin?'admin-item-search':'search-input'}" placeholder="Buscar por modelo, medida, proveedor o SKU…" value="${esc(isAdmin?state.adminItemSearch:state.search)}">
+      <input type="text" id="${isAdmin?'admin-item-search':'search-input'}" placeholder="Buscar por modelo, medida, proveedor o ref. producto…" value="${esc(isAdmin?state.adminItemSearch:state.search)}">
     </div>
     <div class="filter-row">
       <select id="family-filter"><option value="">Todas las familias</option>${state.data.families.map(f=>`<option value="${f.id}" ${state.familyFilter===f.id?'selected':''}>${esc(f.name)}</option>`).join('')}</select>
@@ -977,7 +983,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
           <div class="total"><div class="n">${total}</div><div class="l">disponibles</div></div>
         </div>
         ${locs.length ? `<ul class="locs">${locs.map(whId=>`<li>${icon('warehouse')} ${esc(warehouseName(whId))} <b>${r.stock[whId]}</b></li>`).join('')}</ul>` : `<div class="locs" style="border-top:1px dashed var(--border);padding-top:9px;color:var(--ink-soft);font-size:.82rem;">Sin stock en ningún almacén.</div>`}
-        ${recent.length ? `<div class="log-mini">${recent.map(m=>`<div><span>${m.type==='reserva'?('Pedido '+m.pedidoId+' · '+esc(m.storeName||'')):m.type==='vendido'?('Vendido · '+esc(m.storeName||m.warehouseName||'')):(m.type==='exposicion'?('Exposición · '+esc(m.storeName||'')):(m.subtype==='cliente'?('Entrada cliente · '+esc(m.clientName||'')):('Entrada · '+esc(m.warehouseName||''))))}</span><span>${m.qty} uds.</span></div>`).join('')}</div>` : ''}
+        ${recent.length ? `<div class="log-mini">${recent.map(m=>`<div><span>${m.type==='reserva'?('Pedido '+m.pedidoId+' · '+esc(m.storeName||'')):m.type==='vendido'?('Vendido · '+esc(m.storeName||m.warehouseName||'')):m.type==='ajuste'?('Quitadas · '+esc(m.warehouseName||'')):(m.type==='exposicion'?('Exposición · '+esc(m.storeName||'')):(m.subtype==='cliente'?('Entrada cliente · '+esc(m.clientName||'')):('Entrada · '+esc(m.warehouseName||''))))}</span><span>${m.qty} uds.</span></div>`).join('')}</div>` : ''}
         <div class="actions">
           ${isAdmin?`<button class="btn btn-teal" data-action="reserve" data-id="${r.id}" type="button" ${total<=0?'disabled':''}>${icon('bookmark')} Reservar</button>`:''}
           <button class="btn btn-navy" data-action="expose" data-id="${r.id}" type="button" ${total<=0?'disabled':''}>${icon('store')} Exposición</button>
@@ -1150,6 +1156,8 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       sub = `Entrada · ${esc(m.actorName||'Administrador')} · ${esc(m.warehouseName||'')} · REF:${esc(m.sku||'—')}<br><span class="money">${money(m.unitPrice)}/ud · Total ${money(m.total)}</span>`;
     } else if(m.type==='reserva'){
       sub = `Pedido ${esc(m.pedidoId||'')} · Cliente: ${esc(m.clientName||'—')} · ${esc(m.actorName||'')} · ${esc(m.storeName||m.warehouseName||'')}`;
+    } else if(m.type==='ajuste'){
+      sub = `Unidades quitadas · ${esc(m.actorName||'Administrador')} · ${esc(m.warehouseName||'')} · REF:${esc(m.sku||'—')}`;
     } else if(m.type==='vendido'){
       sub = `Vendido · ${esc(m.actorName||'')} · ${esc(m.storeName||m.warehouseName||'')}${m.clientName?` · ${esc(m.clientName)}`:''} · Salió de ${esc(m.warehouseName||'—')}`;
     } else {
@@ -1159,7 +1167,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     return `
     <div class="hist-item">
       <div class="top">
-        <div><div class="name">${icon(m.type==='entrada'?'down':m.type==='reserva'?'bookmark':m.type==='vendido'?'sales':'store')} ${esc(m.itemName)} <span class="qty">x${m.qty}</span></div></div>
+        <div><div class="name">${icon(m.type==='entrada'?'down':m.type==='reserva'?'bookmark':m.type==='vendido'?'sales':m.type==='ajuste'?'up':'store')} ${esc(m.itemName)} <span class="qty">x${m.qty}</span></div></div>
         <div class="date">${fmtDate(m.createdAt)}</div>
       </div>
       <div class="sub">${sub}</div>
@@ -1463,7 +1471,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     </div>
     <div class="section-head"><div><h2 style="font-size:1.1rem;">Stock bajo</h2></div></div>
     ${low.length===0 ? `<div class="empty">No hay artículos con stock bajo.</div>` : `
-    <div class="table-wrap"><table><thead><tr><th>Artículo</th><th>SKU</th><th>Stock total</th></tr></thead><tbody>
+    <div class="table-wrap"><table><thead><tr><th>Artículo</th><th>Ref. producto</th><th>Stock total</th></tr></thead><tbody>
       ${low.map(i=>`<tr><td>${esc(i.name)}</td><td>${esc(i.sku||'—')}</td><td><span class="tag low">${totalStock(i)}</span></td></tr>`).join('')}
     </tbody></table></div>`}
     `;
@@ -1614,7 +1622,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     sellers: [{key:'name',label:'Nombre del vendedor',type:'text',required:true},{key:'email',label:'Correo',type:'text'},{key:'storeId',label:'Tienda',type:'select',source:'stores',required:true}],
     items: [
       {key:'name', label:'Modelo', type:'text', required:true},
-      {key:'sku', label:'SKU', type:'text'},
+      {key:'sku', label:'REF PRODUCTO', type:'text'},
       {key:'familyId', label:'Familia', type:'select', source:'families'},
       {key:'supplierId', label:'Proveedor', type:'select', source:'suppliers'},
       {key:'measure', label:'Medida', type:'text'},
@@ -1637,7 +1645,24 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     const fields = ENTITY_FIELDS[entity];
     const existing = id ? byId(state.data[entity], id) : (m.presets || {});
     const title = (mode==='add'?'Añadir ':'Editar ') + ENTITY_TITLES[entity];
-    appendModal(title, fields.map(f=>renderField(f, existing)).join(''), 'save-modal');
+    const extra = entity==='items' ? renderReceivedBlock(id ? existing : null) : '';
+    appendModal(title, fields.map(f=>renderField(f, existing)).join('') + extra, 'save-modal');
+  }
+  function renderReceivedBlock(item){
+    const vend = vendidoWarehouse();
+    const whs = state.data.warehouses.filter(w=>!vend || w.id!==vend.id);
+    const actual = item ? whs.filter(w=>stockIn(item,w.id)>0).map(w=>`<li>${esc(w.name)} <b>${stockIn(item,w.id)}</b></li>`).join('') : '';
+    return `
+      <div class="recv-block">
+        <div class="recv-head">${icon('down')} Unid. recibidas</div>
+        ${item ? (actual ? `<ul class="locs" style="margin:0 0 8px;">${actual}</ul>` : `<p class="recv-hint">Ahora mismo no tiene unidades en ningún almacén.</p>`) : `<p class="recv-hint">Si ya han llegado unidades, indícalas aquí y entrarán en stock al guardar.</p>`}
+        <div class="field"><label>Almacén</label><select data-recv="wh"><option value="">— seleccionar —</option>${whs.map(w=>`<option value="${w.id}">${esc(w.name)}${item?` · ${stockIn(item,w.id)} uds.`:''}</option>`).join('')}</select></div>
+        <div class="recv-row">
+          <input type="number" min="0" step="1" inputmode="numeric" data-recv="qty" placeholder="Cantidad">
+          <select data-recv="op"><option value="add">Añadir</option><option value="del">Quitar</option></select>
+          <button class="btn btn-ghost btn-sm" data-action="recv-clear" type="button" title="Borrar la cantidad">×</button>
+        </div>
+      </div>`;
   }
   function renderField(f, existing){
     const val = existing[f.key];
@@ -1672,15 +1697,49 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       data[f.key] = v;
     });
     if(missing){ showToast('Completa los campos obligatorios.'); return; }
-    if(entity==='items' && mode==='add') data.stock = {};
+    // Unid. recibidas: añadir o quitar unidades de un almacén al guardar el artículo
+    let recv = null;
+    if(entity==='items'){
+      const qtyRaw = (document.querySelector('[data-recv="qty"]')||{}).value || '';
+      const qty = Math.floor(Number(qtyRaw)||0);
+      if(qty>0){
+        const wh = (document.querySelector('[data-recv="wh"]')||{}).value || '';
+        if(!wh){ showToast('Elige el almacén de las unidades recibidas.'); return; }
+        const op = (document.querySelector('[data-recv="op"]')||{}).value || 'add';
+        const prev = mode==='add' ? 0 : stockIn(byId(state.data.items, id)||{}, wh);
+        if(op==='del' && qty>prev){ showToast('No puedes quitar '+qty+': en ese almacén hay '+prev+'.'); return; }
+        recv = {qty, wh, op};
+      }
+    }
+    if(entity==='items' && mode==='add') data.stock = recv ? {[recv.wh]: recv.qty} : {};
+    let itemId = id;
     if(mode==='add'){
       const savedId = await addDoc(entity, data);
       if(!savedId) return;
-      showToast('Guardado.');
+      itemId = savedId;
     } else {
       const ok = await updateDoc(entity, id, data);
       if(!ok) return;
-      showToast('Actualizado.');
+    }
+    if(recv){
+      const item = byId(state.data.items, itemId) || {...data, id:itemId};
+      if(mode!=='add'){
+        const newStock = {...(item.stock||{})};
+        newStock[recv.wh] = Math.max(0, (Number(newStock[recv.wh])||0) + (recv.op==='add' ? recv.qty : -recv.qty));
+        const ok = await updateDoc('items', itemId, {stock:newStock});
+        if(!ok) return;
+      }
+      const actorName = currentActorName();
+      const unitPrice = Number(data.price)||0;
+      if(recv.op==='add'){
+        const movId = await addDoc('movements', {type:'entrada', itemId, itemName:data.name, sku:data.sku||'', qty:recv.qty, warehouseId:recv.wh, warehouseName:warehouseName(recv.wh), unitPrice, total:unitPrice*recv.qty, actorName, status:'activo'});
+        await addNotice({type:'recepcion', targets:['almacen'], title:'Mercancía recibida', text:`${data.name} x${recv.qty} · entra en ${warehouseName(recv.wh)}`, movementId:movId, itemId, warehouseId:recv.wh, actorName});
+      } else {
+        await addDoc('movements', {type:'ajuste', itemId, itemName:data.name, sku:data.sku||'', qty:recv.qty, warehouseId:recv.wh, warehouseName:warehouseName(recv.wh), actorName, status:'activo'});
+      }
+      showToast(recv.op==='add' ? `Guardado · ${recv.qty} uds. añadidas en ${warehouseName(recv.wh)}.` : `Guardado · ${recv.qty} uds. quitadas de ${warehouseName(recv.wh)}.`);
+    } else {
+      showToast(mode==='add' ? 'Guardado.' : 'Actualizado.');
     }
     state.modal = null; render();
   }
@@ -2102,7 +2161,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       '',
       'Artículos pedidos:',
       '-------------------',
-      ...pending.map(l=>`- ${l.itemName}${l.sku?` (SKU: ${l.sku})`:''} · Cantidad: ${l.qty}${l.supplierName?` · Fabricante: ${l.supplierName}`:''}${l.note?` · Nota: ${l.note}`:''}`),
+      ...pending.map(l=>`- ${l.itemName}${l.sku?` (Ref. producto: ${l.sku})`:''} · Cantidad: ${l.qty}${l.supplierName?` · Fabricante: ${l.supplierName}`:''}${l.note?` · Nota: ${l.note}`:''}`),
       '',
       'Cuando llegue, dar entrada en la app como "Ya vendido a un cliente" y elegir esta venta para asignarlo.',
     ];
@@ -2193,7 +2252,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
         <label>Productos detectados</label>
         <textarea id="import-text" rows="8" placeholder="Se rellena solo al leer el albarán…"></textarea>
       </div>
-      <p class="hint" style="color:var(--ink-soft);font-size:.78rem;">Si prefieres escribirlo tú, o si la lectura con IA no está disponible en esta vista: pega <b>SKU;Nombre;Cantidad;Precio</b> (y si quieres <b>;Familia;Medida;Tela</b>) por línea (una línea por producto — pídeme a mí, en el chat, que te la prepare a partir de una foto del albarán) y pulsa "Importar".</p>
+      <p class="hint" style="color:var(--ink-soft);font-size:.78rem;">Si prefieres escribirlo tú, o si la lectura con IA no está disponible en esta vista: pega <b>REF PRODUCTO;Nombre;Cantidad;Precio</b> (y si quieres <b>;Familia;Medida;Tela</b>) por línea (una línea por producto — pídeme a mí, en el chat, que te la prepare a partir de una foto del albarán) y pulsa "Importar".</p>
     `;
     appendModal('Importar albarán', body, 'save-import', 'Importar');
     checkImageSupport();
@@ -2431,6 +2490,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       case 'open-edit': state.modal = {kind:'entity', mode:'edit', entity: el.dataset.entity, id: el.dataset.id}; render(); break;
       case 'close-modal': closeModal(); break;
       case 'save-modal': saveModal(); break;
+      case 'recv-clear': { const q = document.querySelector('[data-recv="qty"]'); if(q){ q.value=''; q.focus(); } break; }
       case 'delete':
         if(window.confirm('¿Eliminar este elemento?')){ deleteDocById(el.dataset.entity, el.dataset.id).then(()=>showToast('Eliminado.')); }
         break;
