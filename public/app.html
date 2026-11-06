@@ -1302,7 +1302,8 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     return normSearch([r.provNumber, r.name, r.family, pvp, r.updatedOn, r.updatedOn?new Date(r.updatedOn).toLocaleDateString('es-ES'):'', r.supplierData!=null?r.supplierData:r.contact].join(' '));
   }
   function renderSuppliersConfig(){
-    const all = state.data.suppliers;
+    // Orden alfabético por nombre (sin distinguir mayúsculas ni tildes; los números, de menor a mayor).
+    const all = state.data.suppliers.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''), 'es', {sensitivity:'base', numeric:true}));
     const q = normSearch(state.supplierSearch||'').trim();
     const rows = q ? all.filter(r=>{ const t = supplierSearchText(r); return q.split(/\s+/).every(w=>t.includes(w)); }) : all;
     const cell = (r, key, type, ph) => `<input class="sup-input" type="${type}" ${type==='text'&&key==='pvpPoints'?'inputmode="decimal"':''} data-sup-id="${r.id}" data-sup-key="${key}" value="${esc(key==='pvpPoints' && r[key]!=null && r[key]!=='' ? String(r[key]).replace('.',',') : (r[key]||''))}" placeholder="${ph}">`;
