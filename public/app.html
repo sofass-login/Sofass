@@ -715,7 +715,21 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
   const warehouseName = id => (byId(state.data.warehouses,id)||{}).name || '—';
   const storeName = id => (byId(state.data.stores,id)||{}).name || '—';
   const supplierName = id => (byId(state.data.suppliers,id)||{}).name || '—';
-  const familyName = id => (byId(state.data.families,id)||{}).name || '—';
+  // La familia del artículo es el texto escrito en Configuración → Proveedores → Familia.
+  // Los artículos antiguos guardan el id de una familia vieja: se sigue mostrando su nombre.
+  const familyName = v => { if(!v) return '—'; const old = byId(state.data.families, v); return old ? (old.name||'—') : String(v); };
+  const sortEs = (a,b) => String(a).localeCompare(String(b), 'es', {sensitivity:'base', numeric:true});
+  function familyFilterOptions(){
+    const out = new Map();
+    supplierFamilies().forEach(t=>out.set(t.toLowerCase(), {id:t, name:t}));
+    state.data.items.forEach(i=>{ if(!i.familyId) return; const n = familyName(i.familyId); if(!out.has(n.toLowerCase())) out.set(n.toLowerCase(), {id:n, name:n}); });
+    return [...out.values()].sort((a,b)=>sortEs(a.name,b.name));
+  }
+  function supplierFamilies(){
+    const seen = new Map();
+    state.data.suppliers.forEach(sp=>{ const t = String(sp.family||'').trim(); if(t && !seen.has(t.toLowerCase())) seen.set(t.toLowerCase(), t); });
+    return [...seen.values()].sort(sortEs);
+  }
   const groupName = id => (byId(state.data.familyGroups,id)||{}).name || '—';
   const getSettings = () => state.data.settings.find(s=>s.id==='app') || {};
   // Disponible = todos los almacenes menos "Vendido" (lo vendido pendiente de entregar ya no está a la venta).
@@ -923,7 +937,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     let rows = state.data.items.slice();
     const q = (state.stockContext==='seller' ? state.search : state.adminItemSearch).trim().toLowerCase();
     if(q) rows = rows.filter(r=>(r.name||'').toLowerCase().includes(q) || (r.sku||'').toLowerCase().includes(q) || (r.clientRef||'').toLowerCase().includes(q) || supplierName(r.supplierId).toLowerCase().includes(q) || (r.measure||'').toLowerCase().includes(q));
-    if(state.familyFilter) rows = rows.filter(r=>r.familyId===state.familyFilter);
+    if(state.familyFilter){ const ff = state.familyFilter.toLowerCase(); rows = rows.filter(r=>familyName(r.familyId).toLowerCase()===ff); }
     if(state.supplierFilter) rows = rows.filter(r=>r.supplierId===state.supplierFilter);
     if(state.warehouseFilter) rows = rows.filter(r=>stockIn(r,state.warehouseFilter) > 0);
     return rows;
@@ -959,7 +973,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       <input type="text" id="${isAdmin?'admin-item-search':'search-input'}" placeholder="Buscar por modelo, medida, proveedor o ref. producto…" value="${esc(isAdmin?state.adminItemSearch:state.search)}">
     </div>
     <div class="filter-row">
-      <select id="family-filter"><option value="">Todas las familias</option>${state.data.families.map(f=>`<option value="${f.id}" ${state.familyFilter===f.id?'selected':''}>${esc(f.name)}</option>`).join('')}</select>
+      <select id="family-filter"><option value="">Todas las familias</option>${familyFilterOptions().map(f=>`<option value="${esc(f.id)}" ${state.familyFilter===f.id?'selected':''}>${esc(f.name)}</option>`).join('')}</select>
       <select id="supplier-filter"><option value="">Todos los proveedores</option>${state.data.suppliers.map(s=>`<option value="${s.id}" ${state.supplierFilter===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select>
       ${view==='warehouse' ? `<select id="warehouse-filter"><option value="">Todos los almacenes</option>${state.data.warehouses.map(w=>`<option value="${w.id}" ${state.warehouseFilter===w.id?'selected':''}>${esc(w.name)}</option>`).join('')}</select>` : ''}
       ${isAdmin ? `<button class="btn btn-accent" data-action="open-add" data-entity="items" type="button">${icon('plus')} Artículo</button>` : ''}
@@ -1206,7 +1220,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
     } else if(state.valorView==='supplier'){
       items.forEach(i=>{ const q=totalStock(i); if(q>0) addTo(i.supplierId||'—', supplierName(i.supplierId), q, q*(Number(i.price)||0)); });
     } else {
-      items.forEach(i=>{ const q=totalStock(i); if(q>0) addTo(i.familyId||'—', familyName(i.familyId), q, q*(Number(i.price)||0)); });
+      items.forEach(i=>{ const q=totalStock(i); if(q>0) addTo(familyName(i.familyId).toLowerCase(), familyName(i.familyId), q, q*(Number(i.price)||0)); });
     }
     const groupKeys = Object.keys(groups).sort((a,b)=>groups[b].value-groups[a].value);
     return `
@@ -1241,7 +1255,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       const rows = items.filter(i=>{
         if(state.valorView==='warehouse') return stockIn(i,k)>0;
         if(state.valorView==='supplier') return (i.supplierId||'—')===k && totalStock(i)>0;
-        return (i.familyId||'—')===k && totalStock(i)>0;
+        return familyName(i.familyId).toLowerCase()===k && totalStock(i)>0;
       });
       return `
       <div class="wh-block">
@@ -1627,7 +1641,7 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       {key:'name', label:'Modelo', type:'text', required:true},
       {key:'sku', label:'REF PRODUCTO', type:'text'},
       {key:'clientRef', label:'Ref. cliente (si está vendida)', type:'text'},
-      {key:'familyId', label:'Familia', type:'select', source:'families'},
+      {key:'familyId', label:'Familia', type:'select', source:'supplierFamilies'},
       {key:'supplierId', label:'Proveedor', type:'select', source:'suppliers'},
       {key:'measure', label:'Medida', type:'text'},
       {key:'material', label:'Tela / color', type:'text'},
@@ -1670,6 +1684,15 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
   }
   function renderField(f, existing){
     const val = existing[f.key];
+    if(f.type==='select' && f.source==='supplierFamilies'){
+      const fams = supplierFamilies();
+      const actual = val ? familyName(val) : '';
+      const extra = actual && actual!=='—' && !fams.some(t=>t.toLowerCase()===actual.toLowerCase()) ? `<option value="${esc(val)}" selected>${esc(actual)} (anterior)</option>` : '';
+      return `<div class="field"><label>${f.label}</label><select data-field="${f.key}">
+        <option value="">— seleccionar —</option>${extra}
+        ${fams.map(t=>`<option value="${esc(t)}" ${actual.toLowerCase()===t.toLowerCase()?'selected':''}>${esc(t)}</option>`).join('')}
+      </select>${fams.length?'':`<div class="stock-hint">Todavía no hay familias: escríbelas en Configuración → Proveedores → Familia.</div>`}</div>`;
+    }
     if(f.type==='select'){
       const opts = state.data[f.source] || [];
       return `<div class="field"><label>${f.label}</label><select data-field="${f.key}">
@@ -2359,10 +2382,9 @@ start().then(ctx => window.__sofassResolve(ctx)).catch(e => {
       const qty = Math.max(0, Number(parts[2])||0);
       const price = Number(parts[3])||0;
       // Columnas opcionales: Familia;Medida;Tela/color
-      const famName = (parts[4]||'').toLowerCase();
-      const fam = famName ? state.data.families.find(f=>String(f.name||'').trim().toLowerCase()===famName) : null;
+      const famText = (parts[4]||'').trim();
       const extra = {};
-      if(fam) extra.familyId = fam.id;
+      if(famText) extra.familyId = supplierFamilies().find(t=>t.toLowerCase()===famText.toLowerCase()) || famText;
       if(parts[5]) extra.measure = parts[5];
       if(parts[6]) extra.material = parts[6];
       if(!sku && !name) continue;
